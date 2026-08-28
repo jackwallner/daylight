@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fill in subscription prices for every territory from the USA base price.
 
-For each Daylight Left subscription: take its existing USA price point, fetch that
+For each Daylight subscription: take its existing USA price point, fetch that
 point's equalizations (Apple's suggested equivalent in every other territory),
 and create a subscriptionPrice per territory that doesn't have one yet.
 
