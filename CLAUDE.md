@@ -32,9 +32,11 @@ app is useful at 4pm in November rather than only at bedtime.
 - Tests: `com.jackwallner.daylight.tests`
 - App Group: `group.com.jackwallner.daylight`
 - App Store Connect app: `6806112259`
-- RevenueCat entitlement: `Daylight+` (confirm against the dashboard before the
-  first release; `isPro` falls back to any active entitlement, so a mismatch
-  would go unnoticed)
+- RevenueCat project `proje7f6e3db`. The entitlement's lookup key is
+  `daylight` and `Daylight+` is only its display name, so the
+  `StoreService.proEntitlement` constant does not match anything. Nothing reads
+  that constant: `isPro` is set from any active entitlement, which is why the
+  mismatch has never shown up.
 - RevenueCat secret key: `~/.daylight_credentials`. Only the `appl_` public key
   belongs in the binary.
 
@@ -88,6 +90,15 @@ Store products:
 - `com.jackwallner.daylight.monthly`
 - `com.jackwallner.daylight.yearly`
 - `com.jackwallner.daylight.pro.lifetime`
+
+None of the three exist yet. App Store Connect has no in-app purchases on the
+record, and the RevenueCat project holds only Test Store products keyed
+`monthly`, `yearly`, and `lifetime`, attached to no offering. The `default`
+offering is empty, so a TestFlight or App Store build reaches the paywall with
+nothing to show. Creating the three ASC products, linking them to the
+RevenueCat App Store app under their full identifiers, and adding them to
+`default` as packages is the work left before the paywall renders off the
+simulator.
 
 ## App Review constraints
 
