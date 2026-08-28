@@ -1,0 +1,46 @@
+Apple Health already counts the minutes your Apple Watch recorded you in daylight. Daylight Left adds the half nobody shows you: how much daylight the sun still has to offer today, and the latest you could head out to reach your target before sunset.
+
+Twenty minutes means something different at noon than it does twenty minutes before sunset. That is the whole idea.
+
+TODAY
+- Daylight remaining before sunset, as the lead number
+- Minutes you have spent in daylight so far, read from Apple Health
+- Sunrise, sunset, and today's day length
+- A bar showing how much of the daylight window has already passed
+
+YOUR DEADLINE
+- Short of your target? The app works out the latest you could start and still reach it before the light goes
+- The deadline is anchored on sunset, so it moves with the season instead of the clock
+- When the target is genuinely out of reach, it says so plainly and tells you what tomorrow offers
+
+TRENDS
+- Daily minutes, days on target, and your current streak
+- An unfinished day never breaks a live streak
+- Compare today's available daylight with the same day a month ago, a number that comes from the sun whether or not you went outside
+
+ON YOUR WRIST AND HOME SCREEN
+- Apple Watch app with the remaining figure and your deadline
+- Watch complications in circular, rectangular, inline, and corner styles
+- Home screen and Lock Screen widgets
+
+CALCULATED ON YOUR DEVICE
+Sunrise and sunset come from the NOAA solar position algorithm and one approximate location fix. There is no server, no lookup service, and no background tracking. Polar day and polar night are handled properly, including the civil twilight window when the sun never rises.
+
+APPLE HEALTH
+The app reads Time in Daylight and never writes to Apple Health. You choose which sources count. A phone and a watch from the same app are collapsed into one row so nothing is counted twice.
+
+WHAT IS FREE
+Daylight remaining, sunrise and sunset, day length, your daily target, the head-out-by deadline, Apple Health source controls, widgets, complications, and seven days of history.
+
+DAYLIGHT+
+An optional subscription that unlocks history past seven days, the month-over-month daylight comparison, and a reminder before your daily deadline. Available monthly or yearly, each with a one-week free trial for eligible customers, or as a one-time lifetime purchase.
+
+Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Your Apple Account is charged at confirmation of purchase and again at each renewal. Manage or cancel in your Apple Account settings. Any unused portion of a free trial is forfeited when a subscription is purchased. Prices are shown in the app before you buy and vary by region.
+
+Privacy Policy: https://jackwallner.com/ios/daylight/privacy-policy.html
+Terms of Use (Apple Standard EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+
+A NOTE ON WHAT THIS IS
+Daylight Left reports what your devices recorded and what the sun offers. Your daily target is your own preference, not a recommendation. The app does not diagnose, treat, cure, or prevent anything, and makes no claim about mood, sleep, vitamin D, or eyesight.
+
+Time in Daylight is recorded by Apple Watch. Without one, the minutes-spent figure stays at zero and the app says so; everything computed from the sun still works.

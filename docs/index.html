@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="How much daylight is left today, and the latest you could head out to reach your target before sunset. iPhone and Apple Watch, powered by Apple Health."
+    />
+    <title>Daylight Left for iPhone and Apple Watch</title>
+    <link rel="icon" type="image/png" sizes="256x256" href="icon_256.png" />
+    <link rel="apple-touch-icon" href="icon_256.png" />
+    <link rel="canonical" href="https://jackwallner.com/ios/daylight/" />
+    <meta
+      name="keywords"
+      content="daylight tracker, time in daylight, sunlight tracker, minutes outside, sunset, sunrise, daylight remaining, Apple Watch, Apple Health, widget, complication"
+    />
+    <meta property="og:title" content="Daylight Left" />
+    <meta
+      property="og:description"
+      content="How much daylight is left today, and the latest you could head out to reach your target before sunset."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://jackwallner.com/ios/daylight/" />
+    <meta
+      property="og:image"
+      content="https://jackwallner.github.io/daylight/icon_256.png"
+    />
+    <meta property="og:site_name" content="Daylight Left" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Daylight Left" />
+    <meta
+      name="twitter:description"
+      content="How much daylight is left today, and the latest you could head out to reach your target before sunset."
+    />
+    <meta
+      name="twitter:image"
+      content="https://jackwallner.github.io/daylight/icon_256.png"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Daylight Left",
+        "operatingSystem": "iOS 17.0, watchOS 10.0",
+        "applicationCategory": "HealthApplication",
+        "description": "Reads Time in Daylight from Apple Health and pairs it with the daylight the sun still has to offer, so you can see how much is left today and the latest you could head out to reach your target before sunset. Sunrise and sunset are computed on device. Not medical advice.",
+        "author": {
+          "@type": "Person",
+          "name": "Jack Wallner"
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <nav>
+        <a class="brand" href="index.html">Daylight Left</a>
+        <div class="nav-links">
+          <a href="support.html">Support</a>
+          <a href="privacy-policy.html">Privacy</a>
+        </div>
+      </nav>
+
+      <main>
+        <section class="hero">
+          <div>
+            <div class="eyebrow">Daylight with a deadline</div>
+            <h1>Know how much daylight is left</h1>
+            <p class="lead">
+              Apple Health counts the minutes you spent in daylight. This adds
+              the half nobody shows you: how much the sun still has to offer,
+              and the time you would have to head out to reach your target.
+            </p>
+            <a class="cta" href="#how-it-works">See how it works</a>
+          </div>
+          <div class="icon-card" aria-label="A low sun above a horizon line">
+            <svg viewBox="0 0 280 280" role="img" aria-hidden="true">
+              <defs>
+                <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#2a2350" />
+                  <stop offset="0.55" stop-color="#c65c48" />
+                  <stop offset="1" stop-color="#fdbe4e" />
+                </linearGradient>
+                <linearGradient id="rule" x1="0" x2="1">
+                  <stop offset="0" stop-color="#fcb84a" />
+                  <stop offset="1" stop-color="#ffd75e" />
+                </linearGradient>
+              </defs>
+              <rect x="20" y="26" width="240" height="150" rx="18" fill="url(#sky)" />
+              <circle cx="140" cy="176" r="54" fill="#fff0be" />
+              <rect x="20" y="172" width="240" height="6" fill="url(#rule)" />
+              <rect x="20" y="178" width="240" height="76" rx="18" fill="#201b28" />
+            </svg>
+          </div>
+        </section>
+
+        <section id="how-it-works" class="grid">
+          <article class="card">
+            <div class="number">01</div>
+            <h3>See what is left</h3>
+            <p>
+              The lead number is the daylight still ahead of you today, not the
+              minutes already behind you. Twenty minutes means something
+              different at noon than it does before sunset.
+            </p>
+          </article>
+          <article class="card">
+            <div class="number">02</div>
+            <h3>Get your deadline</h3>
+            <p>
+              Short of your target? The app works out the latest you could start
+              and still reach it before the light goes, and moves that time with
+              the season.
+            </p>
+          </article>
+          <article class="card">
+            <div class="number">03</div>
+            <h3>Watch the year turn</h3>
+            <p>
+              Compare today's available daylight with the same day a month ago.
+              That number comes from the sun, so it shows up whether or not you
+              went outside.
+            </p>
+          </article>
+        </section>
+
+        <section class="section">
+          <div class="section-copy">
+            <div class="eyebrow">Calculated, not guessed</div>
+            <h2>Sunrise and sunset worked out on your device</h2>
+            <p>
+              The app uses the NOAA solar position algorithm and one approximate
+              location fix. There is no server, no background tracking, and no
+              network call to find out when the sun sets. It handles the polar
+              cases too, where the sun does not rise or does not set at all.
+            </p>
+            <div class="formula">
+              daylight left = sunset − now
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-copy">
+            <div class="eyebrow">Built into your day</div>
+            <h2>Phone, wrist, widgets, and Apple Health</h2>
+            <p>
+              Check the remaining figure in a widget or a watch complication,
+              choose which Apple Health sources count, and set a reminder before
+              your daily deadline. Time in Daylight is recorded by Apple Watch;
+              without one, the minutes-spent figure stays at zero and the app
+              says so, while the sunrise and sunset half still works.
+            </p>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-copy">
+            <div class="eyebrow">What this is not</div>
+            <h2>A record, not a prescription</h2>
+            <p>
+              Daylight Left reports what your devices recorded and what the sun
+              offers. Your daily target is your own preference. The app does not
+              diagnose, treat, cure, or prevent anything, and makes no claim
+              about mood, sleep, vitamin D, or eyesight.
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <span>© 2026 Jack Wallner</span>
+        <span
+          ><a href="privacy-policy.html">Privacy</a> ·
+          <a href="terms.html">Terms</a> ·
+          <a href="support.html">Support</a></span
+        >
+      </footer>
+    </div>
+  </body>
+</html>
