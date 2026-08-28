@@ -3,8 +3,8 @@ import StoreKit
 
 /// App Store review deep links for Daylight Left.
 enum AppStoreReviewLinks {
-    /// App Store Connect record. Set once the app record exists.
-    static let appStoreID = ""
+    /// App Store Connect record for com.jackwallner.daylight.
+    static let appStoreID = "6806112259"
 
     /// Opens the App Store write-review page in the user's storefront.
     /// Region-agnostic when the storefront is unknown; Apple routes to the

@@ -31,7 +31,7 @@ app is useful at 4pm in November rather than only at bedtime.
 - Watch widget: `com.jackwallner.daylight.watch.widget`
 - Tests: `com.jackwallner.daylight.tests`
 - App Group: `group.com.jackwallner.daylight`
-- App Store Connect app: not yet created
+- App Store Connect app: `6806112259`
 - RevenueCat entitlement: `Daylight+` (confirm against the dashboard before the
   first release; `isPro` falls back to any active entitlement, so a mismatch
   would go unnoticed)
@@ -106,9 +106,10 @@ Store products:
 ## Release
 
 Run `xcodegen generate`, tests on a leased simulator UDID, then
-`./scripts/testflight.sh`. The App Store Connect record does not exist yet, so
-`scripts/asc-*.py` cannot run until it is created and `AppStoreReviewLinks.appStoreID`
-is filled in.
+`./scripts/testflight.sh`. The App Store Connect record is `6806112259` and the
+1.0 version sits in `PREPARE_FOR_SUBMISSION`. The listing copy, screenshots,
+IAP records, and age rating are still unset, so a store submission needs those
+before `scripts/asc-submit-for-review.py` will do anything useful.
 
 ---
 Shared iOS conventions (build, simulator, release/TestFlight, ASC key, signing,
