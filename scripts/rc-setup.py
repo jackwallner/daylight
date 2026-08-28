@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Wire the Daylight Left App Store products into RevenueCat.
+"""Wire the Daylight App Store products into RevenueCat.
 
 This is the one step blocking a real purchase. The `default` offering exists in
-the Daylight Left RC project but has **zero packages**, so a device build shows
+the Daylight RC project but has **zero packages**, so a device build shows
 "Daylight+ Plans Unavailable" no matter how healthy the App Store side is.
 
 Usage:
@@ -17,13 +17,13 @@ environment for this one run.
 V2 secret keys are **project-scoped**: every one of the fleet's existing keys
 (VO2 Max, Bridge, Cribbage, Mahj, StatScout, Aging, Queasy, DreamCart) returns
 exactly its own project from `GET /projects` and 404s on anything else. So no
-existing key can reach Daylight Left, and the key for this run has to be created in
-the Daylight Left project itself. That also means `find_project` cannot rely on the
+existing key can reach Daylight, and the key for this run has to be created in
+the Daylight project itself. That also means `find_project` cannot rely on the
 name matching: a scoped key returning one project *is* the answer.
 
 Ported from ~/health/scripts/rc-setup.py with one substantive difference: that
 version indexes into the offering's existing packages and would raise a
-KeyError here, because Daylight Left's offering has none yet. This one creates any
+KeyError here, because Daylight's offering has none yet. This one creates any
 missing package before attaching products to it.
 """
 from __future__ import annotations
@@ -36,10 +36,12 @@ import urllib.request
 BASE = "https://api.revenuecat.com/v2"
 BUNDLE_ID = "com.jackwallner.daylight"
 PROJECT_NAMES = {"daylight", "daylight left"}
-# The entitlement lookup key is "Daylight+", matching the tier's branding and the
-# entitlement that already exists in the project. It is not "pro": that was the
-# documented contract for a while, but nothing ever created it.
-ENTITLEMENT_KEY = "Daylight+"
+# The entitlement that exists in the project has the lookup key "daylight";
+# "Daylight+" is only its display name. Looking it up by the display name found
+# nothing and would have created a second entitlement beside the real one,
+# leaving the products attached to the copy. It is not "pro" either: that was
+# the documented contract for a while, but nothing ever created it.
+ENTITLEMENT_KEY = "daylight"
 ENTITLEMENT_NAME = "Daylight+"
 # Mirrors RevenueCatConfig.publicSDKKey; the run warns if the project hands back
 # a different production key, which would mean the binary talks to another app.
@@ -93,7 +95,7 @@ def find_project() -> dict:
     if len(projects) == 1:
         # Project-scoped key: whatever it can see is the project it belongs to.
         # find_app() below still refuses to write to the wrong one, because it
-        # requires an app with Daylight Left's bundle id.
+        # requires an app with Daylight's bundle id.
         print(f"note: key is scoped to the single project {projects[0]['name']!r}")
         return projects[0]
     names = ", ".join(repr(project["name"]) for project in projects)
