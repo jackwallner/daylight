@@ -1,1 +1,1 @@
-sunlight,daylight,outdoors,sun,sunset,sunrise,tracker,time,outside,walk,light,watch,widget,health
+sunlight,sun,sunset,sunrise,tracker,goal,streak,walk,outdoors,widget,health,daily,log,fresh air

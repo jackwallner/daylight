@@ -85,13 +85,18 @@ struct DaylightWidgetView: View {
         switch family {
         case .systemSmall:
             VStack(alignment: .leading, spacing: 4) {
-                Label("Daylight left", systemImage: "sun.max.fill")
+                Label("In daylight today", systemImage: "sun.max.fill")
                     .font(.caption2)
                     .foregroundStyle(Theme.textSecondary)
-                Text(DaylightFormat.minutes(entry.snapshot.remainingMinutes))
+                Text(DaylightFormat.minutes(entry.snapshot.minutesToday))
                     .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.amber)
+                    .foregroundStyle(entry.snapshot.metGoal ? Theme.mint : Theme.amber)
                     .minimumScaleFactor(0.6)
+                Text("of \(DaylightFormat.minutes(entry.snapshot.goalMinutes))")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.textSecondary)
+                ProgressView(value: entry.snapshot.goalProgress)
+                    .tint(entry.snapshot.metGoal ? Theme.mint : Theme.amber)
                 Spacer()
                 Text(subtitle)
                     .font(.caption2)
@@ -100,41 +105,47 @@ struct DaylightWidgetView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         case .accessoryCircular:
-            VStack(spacing: 0) {
-                Image(systemName: "sun.max.fill").font(.caption2)
-                Text(DaylightFormat.compactMinutes(entry.snapshot.remainingMinutes))
-                    .font(.headline.bold())
+            Gauge(value: entry.snapshot.goalProgress) {
+                Image(systemName: "sun.max.fill")
+            } currentValueLabel: {
+                Text(DaylightFormat.compactMinutes(entry.snapshot.minutesToday))
                     .minimumScaleFactor(0.6)
             }
+            .gaugeStyle(.accessoryCircular)
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 1) {
-                Text("DAYLIGHT LEFT").font(.caption2)
-                Text(DaylightFormat.minutes(entry.snapshot.remainingMinutes)).font(.headline.bold())
+                Text("IN DAYLIGHT").font(.caption2)
+                Text("\(DaylightFormat.minutes(entry.snapshot.minutesToday)) of \(DaylightFormat.minutes(entry.snapshot.goalMinutes))")
+                    .font(.headline.bold())
                 Text(subtitle).font(.caption).lineLimit(1)
             }
         case .accessoryInline:
             Label(
-                "\(DaylightFormat.compactMinutes(entry.snapshot.remainingMinutes)) daylight left",
+                "\(DaylightFormat.compactMinutes(entry.snapshot.minutesToday)) of \(DaylightFormat.compactMinutes(entry.snapshot.goalMinutes)) outside",
                 systemImage: "sun.max.fill"
             )
         default:
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Label("Daylight left", systemImage: "sun.max.fill")
+                    Label("In daylight today", systemImage: "sun.max.fill")
                         .font(.caption2)
                         .foregroundStyle(Theme.textSecondary)
-                    Text(DaylightFormat.minutes(entry.snapshot.remainingMinutes))
+                    Text(DaylightFormat.minutes(entry.snapshot.minutesToday))
                         .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .foregroundStyle(Theme.amber)
-                    Text(subtitle)
-                        .font(.caption)
+                        .foregroundStyle(entry.snapshot.metGoal ? Theme.mint : Theme.amber)
+                    Text("of \(DaylightFormat.minutes(entry.snapshot.goalMinutes)) target")
+                        .font(.caption2)
                         .foregroundStyle(Theme.textSecondary)
+                    ProgressView(value: entry.snapshot.goalProgress)
+                        .tint(entry.snapshot.metGoal ? Theme.mint : Theme.amber)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(DaylightFormat.minutes(entry.snapshot.minutesToday))
-                        .font(.title3.bold())
-                    Text("in daylight today")
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.trailing)
+                    Text("\(DaylightFormat.minutes(entry.snapshot.remainingMinutes)) of light left")
                         .font(.caption2)
                         .foregroundStyle(Theme.textSecondary)
                     if let sunset = entry.snapshot.solar.sunset {
@@ -167,8 +178,8 @@ struct DaylightWidget: Widget {
             DaylightWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("Daylight left")
-        .description("How much daylight is left today, and the time to head out to reach your target.")
+        .configurationDisplayName("Minutes in daylight")
+        .description("Your minutes outside against today's target, and the time to head out to reach it.")
         .supportedFamilies([
             .systemSmall,
             .systemMedium,

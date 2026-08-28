@@ -22,8 +22,8 @@ struct DaylightOnboardingView: View {
     private var welcome: some View {
         OnboardingPage(
             symbol: "sun.max.fill",
-            title: "Daylight Left",
-            message: "Apple Health counts the minutes you spend in daylight. This app adds the half nobody shows you: how much daylight is still available today, and the time you would have to head out to reach your target before sunset."
+            title: "Daylight",
+            message: "Track the minutes you spend in daylight against a target you set. Then, when you are short, the app works out the latest you could head out and still reach it before sunset."
         ) {
             Button("Get started") { page = 1 }
                 .buttonStyle(SunButtonStyle())
@@ -153,10 +153,14 @@ struct DaylightTodayView: View {
         ScrollView {
             VStack(spacing: 16) {
                 headline
+                // The headline is now the recorded total, so an iPhone-only
+                // user leads with a giant zero. Say why immediately rather
+                // than four cards further down, where it read as an
+                // afterthought to a number that looked like a judgement.
+                if health.readState == .noData { noWatchNotice }
                 deadlineCard
                 dayArcCard
                 sunCard
-                if health.readState == .noData { noWatchNotice }
                 if location.isUsingFallback { locationNotice }
             }
             .padding(18)
@@ -171,33 +175,43 @@ struct DaylightTodayView: View {
         .sheet(isPresented: $showPurchase) { DaylightPurchaseView() }
     }
 
-    /// The one number the app exists to show, and the one that gives it meaning.
+    /// The number the app exists to grow, and the target that gives it a shape.
+    /// The daylight still available is the card below: it is what makes this
+    /// number actionable, not what the day is measured by.
     private var headline: some View {
-        VStack(spacing: 6) {
-            Text(DaylightFormat.minutes(snapshot.remainingMinutes))
+        let snapshot = snapshot
+        return VStack(spacing: 6) {
+            Text(DaylightFormat.minutes(snapshot.minutesToday))
                 .font(.system(size: 62, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.sunGradient)
                 .contentTransition(.numericText())
-            Text("of daylight left today")
+            Text("in daylight today")
                 .font(.headline)
                 .foregroundStyle(Theme.textSecondary)
-            Text("\(DaylightFormat.minutes(snapshot.minutesToday)) spent in it so far")
+            Text("of your \(DaylightFormat.minutes(snapshot.goalMinutes)) target")
                 .font(.subheadline)
                 .foregroundStyle(Theme.textSecondary)
+            ProgressView(value: snapshot.goalProgress)
+                .tint(snapshot.metGoal ? Theme.mint : Theme.amber)
+                .padding(.horizontal, 44)
+                .padding(.top, 6)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(DaylightFormat.minutes(snapshot.minutesToday)) in daylight today, of your \(DaylightFormat.minutes(snapshot.goalMinutes)) target")
     }
 
-    /// The forecast. This is the interaction the rest of the category does not
-    /// have: not what you did, but what you still can.
+    /// What is still on offer, and the deadline that follows from it. This is
+    /// the interaction the rest of the category does not have: not what you
+    /// did, but what you still can. The goal ring lives in the headline now, so
+    /// every branch here has to name the daylight left in its own words.
     @ViewBuilder
     private var deadlineCard: some View {
         let snapshot = snapshot
         VStack(alignment: .leading, spacing: 10) {
-            Label("Your target", systemImage: "target")
+            Label("Before sunset", systemImage: "sunset.fill")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.textSecondary)
 
@@ -205,14 +219,14 @@ struct DaylightTodayView: View {
                 Text("Target reached")
                     .font(.title2.bold())
                     .foregroundStyle(Theme.mint)
-                Text("\(DaylightFormat.minutes(snapshot.minutesToday)) of your \(DaylightFormat.minutes(snapshot.goalMinutes)) target, with \(DaylightFormat.minutes(snapshot.remainingMinutes)) of daylight still to come.")
+                Text("\(DaylightFormat.minutes(snapshot.remainingMinutes)) of daylight still to come today.")
                     .font(.callout)
                     .foregroundStyle(Theme.textSecondary)
             } else if let latestStart = snapshot.latestStart {
                 Text("Head out by \(DaylightFormat.time(latestStart))")
                     .font(.title2.bold())
                     .foregroundStyle(Theme.textPrimary)
-                Text("\(DaylightFormat.minutes(snapshot.minutesToGoal)) short. That is the latest you could start and still reach your target before sunset.")
+                Text("\(DaylightFormat.minutes(snapshot.minutesToGoal)) short, with \(DaylightFormat.minutes(snapshot.remainingMinutes)) of daylight left. That is the latest you could start and still reach your target before sunset.")
                     .font(.callout)
                     .foregroundStyle(Theme.textSecondary)
             } else if snapshot.isGoalStillPossible {
@@ -229,9 +243,6 @@ struct DaylightTodayView: View {
                     .font(.callout)
                     .foregroundStyle(Theme.textSecondary)
             }
-
-            ProgressView(value: snapshot.goalProgress)
-                .tint(snapshot.metGoal ? Theme.mint : Theme.amber)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
@@ -299,7 +310,7 @@ struct DaylightTodayView: View {
         NoticeCard(
             symbol: "applewatch.slash",
             title: "No daylight minutes yet",
-            message: "Time in Daylight is recorded by Apple Watch. Without one, the sunrise, sunset, and daylight-remaining figures above still work, but the minutes you have spent outside will stay at zero."
+            message: "Time in Daylight is recorded by Apple Watch. Without one the total above stays at zero whatever you do outside, and that is a missing measurement rather than a missing walk. The sunrise, sunset, and daylight-remaining figures below still work."
         )
     }
 
@@ -627,7 +638,7 @@ struct DaylightSettingsView: View {
                 }
                 NavigationLink("Included sources") { DaylightSourcesView() }
                 LabeledContent("Daylight data", value: healthStatusLabel)
-                Text("Daylight Left only reads Time in Daylight. It never writes to Apple Health.")
+                Text("Daylight only reads Time in Daylight. It never writes to Apple Health.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -692,7 +703,7 @@ struct DaylightSettingsView: View {
                 }
                 Link("Privacy policy", destination: DaylightLinks.privacyPolicy)
                 Link("Support", destination: DaylightLinks.support)
-                Text("Sunrise and sunset are calculated from your approximate location. Daylight minutes come from Apple Health. Daylight Left reports what your devices recorded and what the sun offers. It does not diagnose, treat, or prevent anything.")
+                Text("Sunrise and sunset are calculated from your approximate location. Daylight minutes come from Apple Health. Daylight reports what your devices recorded and what the sun offers. It does not diagnose, treat, or prevent anything.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -15,12 +15,16 @@ struct WatchDaylightView: View {
         ScrollView {
             VStack(spacing: 10) {
                 VStack(spacing: 2) {
-                    Text(DaylightFormat.minutes(snapshot.remainingMinutes))
+                    Text(DaylightFormat.minutes(snapshot.minutesToday))
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundStyle(Theme.gold)
-                    Text("daylight left")
+                    Text("of \(DaylightFormat.minutes(snapshot.goalMinutes)) today")
                         .font(.caption2)
                         .foregroundStyle(Theme.textSecondary)
+                    ProgressView(value: snapshot.goalProgress)
+                        .tint(snapshot.metGoal ? Theme.mint : Theme.amber)
+                        .padding(.horizontal, 10)
+                        .padding(.top, 2)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
@@ -29,20 +33,15 @@ struct WatchDaylightView: View {
                 deadline
 
                 HStack {
-                    Text(DaylightFormat.minutes(snapshot.minutesToday))
-                        .font(.headline)
-                    Spacer()
-                    Text("of \(DaylightFormat.minutes(snapshot.goalMinutes))")
+                    Label(DaylightFormat.minutes(snapshot.remainingMinutes), systemImage: "sun.max.fill")
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)
-                }
-                ProgressView(value: snapshot.goalProgress)
-                    .tint(snapshot.metGoal ? Theme.mint : Theme.amber)
-
-                if let sunset = snapshot.solar.sunset {
-                    Label(DaylightFormat.time(sunset), systemImage: "sunset.fill")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    if let sunset = snapshot.solar.sunset {
+                        Label(DaylightFormat.time(sunset), systemImage: "sunset.fill")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.textSecondary)
+                    }
                 }
             }
             .padding(.horizontal, 6)

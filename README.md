@@ -1,4 +1,4 @@
-# Daylight Left
+# Daylight
 
 How much daylight is left today, and the latest you could head out to reach
 your target before sunset. iPhone and Apple Watch, powered by Apple Health.

@@ -1,1 +1,1 @@
-Daylight Left: Minutes Outside
+Daylight: Minutes Outside

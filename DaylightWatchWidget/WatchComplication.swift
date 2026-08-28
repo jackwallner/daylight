@@ -69,33 +69,43 @@ struct WatchDaylightComplicationView: View {
     @Environment(\.widgetFamily) private var family
     let entry: WatchDaylightEntry
 
+    /// Every family leads with the recorded total against the target. A
+    /// complication is glanced at, and a figure climbing toward a goal is worth
+    /// glancing at; the daylight remaining only counts down to zero and then
+    /// says nothing until tomorrow. The deadline rides along wherever there is
+    /// room for a second line.
     var body: some View {
         switch family {
         case .accessoryCircular:
-            VStack(spacing: 0) {
-                Image(systemName: "sun.max.fill").font(.caption2)
-                Text(DaylightFormat.compactMinutes(entry.snapshot.remainingMinutes))
-                    .font(.headline.bold())
+            Gauge(value: entry.snapshot.goalProgress) {
+                Image(systemName: "sun.max.fill")
+            } currentValueLabel: {
+                Text(DaylightFormat.compactMinutes(entry.snapshot.minutesToday))
                     .minimumScaleFactor(0.6)
             }
-            .foregroundStyle(Theme.gold)
+            .gaugeStyle(.accessoryCircular)
+            .tint(entry.snapshot.metGoal ? Theme.mint : Theme.gold)
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 1) {
-                Text("DAYLIGHT LEFT").font(.caption2)
-                Text(DaylightFormat.minutes(entry.snapshot.remainingMinutes)).font(.headline.bold())
+                Text("IN DAYLIGHT").font(.caption2)
+                Text("\(DaylightFormat.minutes(entry.snapshot.minutesToday)) of \(DaylightFormat.minutes(entry.snapshot.goalMinutes))")
+                    .font(.headline.bold())
                 Text(subtitle).font(.caption).lineLimit(1)
             }
         case .accessoryInline:
             Label(
-                "\(DaylightFormat.compactMinutes(entry.snapshot.remainingMinutes)) daylight left",
+                "\(DaylightFormat.compactMinutes(entry.snapshot.minutesToday)) of \(DaylightFormat.compactMinutes(entry.snapshot.goalMinutes)) outside",
                 systemImage: "sun.max.fill"
             )
         case .accessoryCorner:
-            Text(DaylightFormat.compactMinutes(entry.snapshot.remainingMinutes))
+            Text(DaylightFormat.compactMinutes(entry.snapshot.minutesToday))
                 .font(.headline.bold())
-                .widgetLabel { Text("daylight left") }
+                .widgetLabel {
+                    Gauge(value: entry.snapshot.goalProgress) { Text("in daylight") }
+                        .tint(entry.snapshot.metGoal ? Theme.mint : Theme.gold)
+                }
         default:
-            Text(DaylightFormat.compactMinutes(entry.snapshot.remainingMinutes))
+            Text(DaylightFormat.compactMinutes(entry.snapshot.minutesToday))
         }
     }
 
@@ -105,7 +115,7 @@ struct WatchDaylightComplicationView: View {
         if let latestStart = snapshot.latestStart {
             return "Out by \(DaylightFormat.time(latestStart))"
         }
-        return "\(DaylightFormat.minutes(snapshot.minutesToday)) so far"
+        return "\(DaylightFormat.minutes(snapshot.remainingMinutes)) of light left"
     }
 }
 
@@ -116,8 +126,8 @@ struct DaylightWatchWidget: Widget {
             WatchDaylightComplicationView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("Daylight left")
-        .description("Daylight remaining today and the time to head out.")
+        .configurationDisplayName("Minutes in daylight")
+        .description("Your minutes outside against today's target, and the time to head out.")
         .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline, .accessoryCorner])
     }
 }

@@ -22,7 +22,11 @@ struct DaylightApp: App {
                     #if DEBUG
                     if ScreenshotConfig.isEnabled {
                         settings.hasCompletedSetup = true
-                        settings.dailyGoalMinutes = DaylightSettings.defaultGoalMinutes
+                        // Above the 44 minutes the fixtures record, so captures
+                        // land on the head-out-by state. At the default 20 the
+                        // target is always already met and the deadline card,
+                        // which is the thing worth showing, never renders.
+                        settings.dailyGoalMinutes = 60
                         CachedLocation.store(latitude: 47.6062, longitude: -122.3321)
                     }
                     #endif

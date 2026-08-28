@@ -1,24 +1,34 @@
-# Daylight Left — Project Guide
+# Daylight, Project Guide
 
-How much daylight is left today, and the latest you could head out to reach
-your target before sunset. XcodeGen project/scheme: `Daylight`, sim lease
-owners `daylight` and `daylight-watch`.
+The minutes you have spent in daylight today against a target you set, and the
+latest you could head out to still reach it before sunset. XcodeGen
+project/scheme: `Daylight`, sim lease owners `daylight` and `daylight-watch`.
 
 ## Product
 
-Every other app in this category answers one question: how many minutes did
-Apple Health record you in daylight? That number alone is a tally, and the App
-Store already has a dozen of them.
+The app answers three questions, in this order:
 
-This app answers three, and the second two are what make it worth opening:
-
-1. How many minutes have I spent in daylight today?
+1. How many minutes have I spent in daylight today, against my target?
 2. How much daylight is still available before sunset?
 3. What is the latest I could head out and still reach my target?
 
-The third is the distinctive interaction. It is a deadline that moves with the
+**The first one leads on every surface.** Today, the watch app, the widgets,
+and every complication family show the recorded total against the target, with
+a progress bar or a gauge. A number climbing toward a goal is worth glancing
+at; the daylight remaining only counts down to zero and then says nothing until
+tomorrow, which makes it a poor thing to put on a complication.
+
+The third is still the distinctive interaction, and it is what keeps this from
+being the twelfth tally app on the store. It is a deadline that moves with the
 season, computed from the shortfall against sunset, and it is the reason the
-app is useful at 4pm in November rather than only at bedtime.
+app is useful at 4pm in November rather than only at bedtime. It sits directly
+under the headline as the card that tells you what to do about the number
+above it.
+
+This ordering was inverted until 2026-08-28: the countdown was the hero
+everywhere and the total was a subtitle. If you are tempted to promote the
+remaining figure back to the lead, that was tried, and the habit loop is the
+reason it changed.
 
 ## Tech stack and identifiers
 

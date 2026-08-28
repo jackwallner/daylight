@@ -1,7 +1,7 @@
 import Foundation
 import StoreKit
 
-/// App Store review deep links for Daylight Left.
+/// App Store review deep links for Daylight.
 enum AppStoreReviewLinks {
     /// App Store Connect record for com.jackwallner.daylight.
     static let appStoreID = "6806112259"
