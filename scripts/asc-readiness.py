@@ -173,10 +173,14 @@ def main() -> None:
         for field in ("contactFirstName", "contactLastName", "contactPhone", "contactEmail"):
             check(f"review {field}", "present" if review_attributes.get(field) else None)
         review_notes = review_attributes.get("notes") or ""
+        # Carried over from a logging app, where the sentinel was "LOGGING IS
+        # FREE". Nothing is logged here: the free tier is today's numbers, and
+        # that is the split a reviewer has to be able to find in the notes.
+        sentinel = "TODAY'S NUMBERS ARE FREE"
         check(
-            "review notes describe free logging",
-            "current" if "LOGGING IS FREE" in review_notes else "stale",
-            "LOGGING IS FREE" in review_notes,
+            "review notes describe the free tier",
+            "current" if sentinel in review_notes else "stale",
+            sentinel in review_notes,
         )
 
     # Paid-product review notes sit beside the app review notes in Apple's
