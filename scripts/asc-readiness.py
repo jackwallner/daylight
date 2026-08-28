@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import asc_lib as A  # noqa: E402
 
 BUNDLE_ID = "com.jackwallner.daylight"
-EXPECTED_NAME = "Daylight Left"
+EXPECTED_NAME = "Daylight: Minutes Outside"
 EXPECTED_CATEGORY = "HEALTH_AND_FITNESS"
 EXPECTED_SCREENSHOTS_BY_TYPE = {
     "APP_IPHONE_67": 6,

@@ -35,7 +35,7 @@ Your daily minutes and target, daylight remaining, sunrise and sunset, day lengt
 DAYLIGHT+
 An optional subscription that unlocks history past seven days, the month-over-month daylight comparison, and a reminder before your daily deadline. Available monthly or yearly, each with a one-week free trial for eligible customers, or as a one-time lifetime purchase.
 
-Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Your Apple Account is charged at confirmation of purchase and again at each renewal. Manage or cancel in your Apple Account settings. Any unused portion of a free trial is forfeited when a subscription is purchased. Prices are shown in the app before you buy and vary by region.
+Your subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Your Apple Account is charged at confirmation of purchase and again at each renewal. Manage or cancel in your Apple Account settings. Any unused portion of a free trial is forfeited when a subscription is purchased. Prices are shown in the app before you buy and vary by region.
 
 Privacy Policy: https://jackwallner.github.io/daylight/privacy-policy.html
 Terms of Use (Apple Standard EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
