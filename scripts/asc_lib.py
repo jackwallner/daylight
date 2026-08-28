@@ -92,6 +92,12 @@ class ASCClient:
     #: Re-mint this many seconds before Apple's 20-minute expiry.
     REFRESH_MARGIN = 300
 
+    #: Statuses that mean "Apple is busy", not "the request was wrong".
+    RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+
+    #: Enough attempts, with the backoff below, to cover about two minutes.
+    MAX_ATTEMPTS = 8
+
     def __init__(self, token: str | None = None, credentials: tuple[str, str, str] | None = None):
         self._credentials = credentials
         self._token = token
@@ -132,15 +138,26 @@ class ASCClient:
             },
         )
         try:
-            for attempt in range(4):
+            for attempt in range(self.MAX_ATTEMPTS):
                 try:
                     with urllib.request.urlopen(req, timeout=120) as resp:
                         raw = resp.read().decode()
                         return json.loads(raw) if raw else {}
-                except (http.client.RemoteDisconnected, urllib.error.URLError, socket.timeout):
-                    if attempt == 3:
+                except urllib.error.HTTPError as e:
+                    # Apple answers a long write run with 500s and 429s that
+                    # clear on their own. Four tries inside eight seconds was
+                    # not enough to ride one out: setting up two subscriptions
+                    # means several hundred POSTs, and the intro-offer loop died
+                    # partway through every time. Back off far enough to
+                    # outlast the throttle, and leave every other status to the
+                    # handler below.
+                    if e.code not in self.RETRY_STATUSES or attempt == self.MAX_ATTEMPTS - 1:
                         raise
-                    time.sleep(2 ** attempt)
+                    time.sleep(min(2 ** attempt, 60))
+                except (http.client.RemoteDisconnected, urllib.error.URLError, socket.timeout):
+                    if attempt == self.MAX_ATTEMPTS - 1:
+                        raise
+                    time.sleep(min(2 ** attempt, 60))
         except urllib.error.HTTPError as e:
             # A 401 on a long run is an expired token, not a bad key. Mint a new
             # one and retry once before giving up.
