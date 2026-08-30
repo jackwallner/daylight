@@ -26,11 +26,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import asc_lib as a  # noqa: E402
 
-APP_ID = "6805950103"
+BUNDLE_ID = "com.jackwallner.daylight"
 
 
-def newest_build(client: a.ASCClient) -> dict | None:
-    builds = a.list_all(client, f"/builds?filter[app]={APP_ID}&limit=200")
+def newest_build(client: a.ASCClient, app_id: str) -> dict | None:
+    builds = a.list_all(client, f"/builds?filter[app]={app_id}&limit=200")
     if not builds:
         return None
     # Sorted here rather than by the API: build numbers come back as strings,
@@ -58,8 +58,9 @@ def main() -> int:
 
     key_id, issuer_id, key_path = a.load_credentials()
     client = a.ASCClient(a.bearer_token(key_id, issuer_id, key_path))
+    app_id = a.find_app(client, BUNDLE_ID)["id"]
 
-    version = a.find_editable_version(client, APP_ID)
+    version = a.find_editable_version(client, app_id)
     if not version:
         print("error: no editable App Store version", file=sys.stderr)
         return 1
@@ -68,8 +69,8 @@ def main() -> int:
     wanted_version = args.version or project_build_version()
     deadline = time.time() + (0 if args.no_wait else args.timeout)
     build = None
-    while time.time() <= deadline:
-        candidate = newest_build(client)
+    while True:
+        candidate = newest_build(client, app_id)
         candidate_version = int(candidate["attributes"]["version"]) if candidate else None
         if candidate and wanted_version is not None and candidate_version < wanted_version:
             print(f"waiting for build {wanted_version} to appear (latest {candidate_version})...")
@@ -82,7 +83,7 @@ def main() -> int:
         else:
             state = candidate["attributes"].get("processingState") if candidate else "none"
             print(f"waiting for build {wanted_version or 'the newest'} to become VALID (state {state})...")
-        if args.no_wait:
+        if args.no_wait or time.time() >= deadline:
             break
         time.sleep(60)
         # The token dies at 20 minutes, so it is reminted rather than reused.

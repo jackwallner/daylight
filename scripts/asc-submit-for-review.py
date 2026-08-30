@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import asc_lib as a  # noqa: E402
 
-APP_ID = "6805950103"
+BUNDLE_ID = "com.jackwallner.daylight"
 EXPECTED_ITEMS = 5
 
 
@@ -46,13 +46,14 @@ def main() -> int:
     args = parser.parse_args()
 
     client = a.ASCClient.from_credentials()
+    app_id = a.find_app(client, BUNDLE_ID)["id"]
 
-    version = a.find_editable_version(client, APP_ID)
+    version = a.find_editable_version(client, app_id)
     if version is None:
         version = next(
             (
                 candidate
-                for candidate in a.list_versions(client, APP_ID)
+                for candidate in a.list_versions(client, app_id)
                 if candidate.get("attributes", {}).get("appStoreState") == "READY_FOR_REVIEW"
             ),
             None,
@@ -70,7 +71,7 @@ def main() -> int:
         return 1
     print(f"attached build {build['attributes']['version']} ({build['attributes']['processingState']})")
 
-    submissions = a.list_all(client, f"/apps/{APP_ID}/reviewSubmissions?filter[platform]=IOS")
+    submissions = a.list_all(client, f"/apps/{app_id}/reviewSubmissions?filter[platform]=IOS")
     open_submissions = [s for s in submissions if s["attributes"]["state"] == "READY_FOR_REVIEW"]
     if not open_submissions:
         states = ", ".join(sorted({s["attributes"]["state"] for s in submissions})) or "none"
