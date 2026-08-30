@@ -234,7 +234,9 @@ final class StoreService: NSObject, ObservableObject, PurchasesDelegate {
                 )
                 return .cancelled
             }
-            return isPro ? .purchased : .pending
+            if isPro { return .purchased }
+            errorMessage = "Purchase pending approval. Daylight+ will unlock when Apple confirms it."
+            return .pending
         } catch {
             let nsError = error as NSError
             if nsError.code == ErrorCode.purchaseCancelledError.rawValue {

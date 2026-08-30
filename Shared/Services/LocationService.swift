@@ -45,6 +45,15 @@ final class LocationService: NSObject, ObservableObject {
 
     var isUsingFallback: Bool { !CachedLocation.current.isReal }
 
+    var isAuthorizationDenied: Bool {
+        switch manager.authorizationStatus {
+        case .denied, .restricted:
+            return true
+        default:
+            return false
+        }
+    }
+
     var authorizationStatus: CLAuthorizationStatus { manager.authorizationStatus }
 
     func requestAccess() {

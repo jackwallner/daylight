@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+@preconcurrency import RevenueCat
 
 // MARK: - Onboarding
 
@@ -157,15 +159,16 @@ struct DaylightTodayView: View {
                 // user leads with a giant zero. Say why immediately rather
                 // than four cards further down, where it read as an
                 // afterthought to a number that looked like a judgement.
-                if health.readState == .noData { noWatchNotice }
+                if health.readState == .noData { noDataNotice }
                 deadlineCard
                 dayArcCard
                 sunCard
-                if location.isUsingFallback { locationNotice }
+                if location.isUsingFallback || location.isAuthorizationDenied { locationNotice }
             }
             .padding(18)
         }
         .background(Theme.background)
+        .safeAreaPadding(.bottom, 80)
         .navigationTitle("Today")
         .onReceive(tick) { now = $0 }
         .refreshable {
@@ -306,20 +309,31 @@ struct DaylightTodayView: View {
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
     }
 
-    private var noWatchNotice: some View {
+    private var noDataNotice: some View {
         NoticeCard(
             symbol: "applewatch.slash",
-            title: "No daylight minutes yet",
-            message: "Time in Daylight is recorded by Apple Watch. Without one the total above stays at zero whatever you do outside, and that is a missing measurement rather than a missing walk. The sunrise, sunset, and daylight-remaining figures below still work."
+            title: "No daylight minutes recorded yet",
+            message: "Daylight minutes come from Apple Watch. If you use one, it may not have recorded a sample yet. Without a watch that records it, the total stays at zero whatever you do outside. The sunrise, sunset, and daylight-remaining figures below still work."
         )
     }
 
+    @ViewBuilder
     private var locationNotice: some View {
-        NoticeCard(
-            symbol: "location.slash",
-            title: "Using an approximate location",
-            message: "Sunrise and sunset are estimated from a default position until location access is granted, so the times above may be well off. Turn it on in Settings."
-        )
+        if location.isAuthorizationDenied {
+            NoticeCard(
+                symbol: "location.slash",
+                title: "Location access is off",
+                message: location.isUsingFallback
+                    ? "Sunrise and sunset use an approximate default. Enable location in Settings for times based on where you are."
+                    : "Sunrise and sunset use your last known location. Enable location in Settings to keep the times current."
+            )
+        } else {
+            NoticeCard(
+                symbol: "location.slash",
+                title: "Using an approximate location",
+                message: "Sunrise and sunset are estimated from a default position until location access is granted, so the times above may be well off. Turn it on in Settings."
+            )
+        }
     }
 
     private var tomorrowAvailable: Double {
@@ -464,18 +478,33 @@ struct DaylightTrendsView: View {
             .padding(18)
         }
         .background(Theme.background)
+        .safeAreaPadding(.bottom, 80)
         .navigationTitle("Trends")
         .task(id: range) { await load() }
         .sheet(isPresented: $showPurchase) { DaylightPurchaseView() }
     }
 
     private var rangePicker: some View {
-        Picker("Range", selection: $range) {
-            ForEach(Self.ranges, id: \.self) { days in
-                Text(days == 365 ? "1y" : "\(days)d").tag(days)
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Range", selection: $range) {
+                ForEach(Self.ranges, id: \.self) { days in
+                    let label = days == 365 ? "1y" : "\(days)d"
+                    if days == Self.freeDays {
+                        Text(label).tag(days)
+                    } else {
+                        Label(label, systemImage: "lock.fill")
+                            .accessibilityLabel("\(label), requires Daylight+")
+                            .tag(days)
+                    }
+                }
+            }
+            .pickerStyle(.segmented)
+            if !store.isPro {
+                Label("Longer history requires Daylight+", systemImage: "lock.fill")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
-        .pickerStyle(.segmented)
         .onChange(of: range) { _, value in
             guard value > Self.freeDays, !store.isPro else { return }
             range = Self.freeDays
@@ -644,8 +673,15 @@ struct DaylightSettingsView: View {
             }
 
             Section("Location") {
-                Button("Use my location") { location.requestAccess() }
-                LabeledContent("Sunset times", value: location.isUsingFallback ? "Approximate" : "Your location")
+                if location.isAuthorizationDenied {
+                    Button("Open Settings", action: openAppSettings)
+                    Text("Location access is off. Enable it in Settings to use your current sunrise and sunset.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Button("Use my location") { location.requestAccess() }
+                }
+                LabeledContent("Sunset times", value: locationStatusLabel)
                 Text("Used once to compute sunrise and sunset on this device. Nothing is sent anywhere and there is no background tracking.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -692,7 +728,21 @@ struct DaylightSettingsView: View {
             Section("Daylight+") {
                 LabeledContent("Status", value: store.isPro ? "Active" : "Free")
                 Button(store.isPro ? "Manage purchase" : "See Daylight+") { showPurchase = true }
-                Button("Restore purchases") { Task { await store.restore() } }
+                Button {
+                    Task { await store.restore() }
+                } label: {
+                    if store.isLoading {
+                        ProgressView()
+                    } else {
+                        Text("Restore purchases")
+                    }
+                }
+                .disabled(store.isLoading)
+                if let error = store.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
 
             Section("About") {
@@ -709,6 +759,10 @@ struct DaylightSettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .scrollContentBackground(.hidden)
+        .background(Theme.background)
+        .safeAreaPadding(.bottom, 80)
+        .tint(Theme.amber)
         .sheet(isPresented: $showPurchase) { DaylightPurchaseView() }
     }
 
@@ -718,6 +772,18 @@ struct DaylightSettingsView: View {
         case .receiving: "Receiving"
         case .noData: "No samples yet"
         }
+    }
+
+    private var locationStatusLabel: String {
+        if location.isAuthorizationDenied {
+            return location.isUsingFallback ? "Approximate" : "Last known"
+        }
+        return location.isUsingFallback ? "Approximate" : "Your location"
+    }
+
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 
@@ -761,6 +827,7 @@ struct DaylightSourcesView: View {
 struct DaylightPurchaseView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: StoreService
+    @State private var selectedPackageIdentifier: String?
 
     var body: some View {
         NavigationStack {
@@ -777,32 +844,57 @@ struct DaylightPurchaseView: View {
 
                     ForEach(store.packages, id: \.identifier) { package in
                         Button {
-                            Task {
-                                if await store.purchase(package) == .purchased { dismiss() }
-                            }
+                            selectedPackageIdentifier = package.identifier
                         } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(package.daylightDisplayName).font(.headline)
-                                    if let trial = store.eligibleIntroLabel(for: package) {
-                                        Text(trial).font(.caption).foregroundStyle(Theme.mint)
-                                    }
-                                }
-                                Spacer()
-                                Text(package.daylightPriceLabel).fontWeight(.semibold)
-                            }
-                            .padding(18)
-                            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18))
+                            DaylightPlanCard(
+                                title: package.daylightDisplayName,
+                                price: package.daylightPriceLabel,
+                                detail: package.daylightPackageKind == .lifetime
+                                    ? "One-time purchase"
+                                    : store.eligibleIntroLabel(for: package),
+                                isSelected: selectedPackageIdentifier == package.identifier
+                            )
                         }
                         .buttonStyle(.plain)
+                        .disabled(store.isLoading)
                     }
 
                     if store.packages.isEmpty {
-                        ProgressView("Loading plans")
-                            .task { store.start(forceRefresh: true) }
+                        if store.isLoadingProducts {
+                            ProgressView("Loading plans")
+                        } else if store.errorMessage != nil {
+                            Text("Purchase options are unavailable right now.")
+                                .font(.callout)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(Theme.textSecondary)
+                            Button("Try again") { store.start(forceRefresh: true) }
+                        } else {
+                            ProgressView("Loading plans")
+                        }
                     }
 
-                    Text("Subscriptions renew automatically until cancelled. Cancel at least 24 hours before the period ends in your Apple ID settings. Prices are shown before you buy and vary by region.")
+                    if let error = store.errorMessage {
+                        Text(error)
+                            .font(.caption)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.red)
+                    }
+
+                    Button {
+                        guard let package = selectedPackage else { return }
+                        Task {
+                            if await store.purchase(package) == .purchased { dismiss() }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if store.isLoading { ProgressView().tint(.white) }
+                            Text(purchaseButtonLabel)
+                        }
+                    }
+                    .buttonStyle(SunButtonStyle())
+                    .disabled(selectedPackage == nil || store.isLoading)
+
+                    Text(purchaseDisclosure)
                         .font(.caption2)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Theme.textSecondary)
@@ -815,9 +907,6 @@ struct DaylightPurchaseView: View {
                     }
                     .font(.caption)
                     .foregroundStyle(Theme.textSecondary)
-                    if let error = store.errorMessage {
-                        Text(error).font(.caption).foregroundStyle(.red)
-                    }
                 }
                 .padding(22)
             }
@@ -829,7 +918,88 @@ struct DaylightPurchaseView: View {
                 }
             }
         }
+        .onAppear { selectDefaultPackage() }
+        .onChange(of: store.packages.map(\.identifier)) { _, _ in selectDefaultPackage() }
+        .task {
+            if store.packages.isEmpty && !store.isLoadingProducts {
+                store.start(forceRefresh: true)
+            }
+        }
         .onAppear { store.trackPaywallImpression(id: "daylight_paywall") }
+    }
+
+    private var selectedPackage: Package? {
+        if let selectedPackageIdentifier,
+           let selected = store.packages.first(where: { $0.identifier == selectedPackageIdentifier }) {
+            return selected
+        }
+        return store.yearlyPackage ?? store.packages.first
+    }
+
+    private var purchaseButtonLabel: String {
+        if store.isLoading { return "Processing..." }
+        guard let selectedPackage else { return "Choose a plan" }
+        if let trial = store.eligibleIntroLabel(for: selectedPackage) {
+            return "Start \(trial)"
+        }
+        return "Continue with \(selectedPackage.daylightDisplayName)"
+    }
+
+    private var purchaseDisclosure: String {
+        if selectedPackage?.daylightPackageKind == .lifetime {
+            return "One-time purchase. There is no subscription or automatic renewal. Prices are shown before you buy and vary by region."
+        }
+        if selectedPackage != nil {
+            return "Subscriptions renew automatically until cancelled. Cancel at least 24 hours before the period ends in your Apple ID settings. Prices are shown before you buy and vary by region."
+        }
+        return "Prices are shown before you buy and vary by region."
+    }
+
+    private func selectDefaultPackage() {
+        guard let package = store.yearlyPackage ?? store.packages.first else {
+            selectedPackageIdentifier = nil
+            return
+        }
+        guard let selectedPackageIdentifier,
+              store.packages.contains(where: { $0.identifier == selectedPackageIdentifier }) else {
+            self.selectedPackageIdentifier = package.identifier
+            return
+        }
+    }
+}
+
+private struct DaylightPlanCard: View {
+    let title: String
+    let price: String
+    let detail: String?
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .foregroundStyle(isSelected ? Theme.amber : Theme.textSecondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.headline)
+                if let detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(Theme.mint)
+                }
+            }
+            Spacer(minLength: 8)
+            Text(price).fontWeight(.semibold)
+        }
+        .padding(18)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(isSelected ? Theme.amber : .clear, lineWidth: 2)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 18))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(price)")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
     }
 }
 
