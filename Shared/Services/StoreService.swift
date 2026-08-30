@@ -146,6 +146,8 @@ final class StoreService: NSObject, ObservableObject, PurchasesDelegate {
             // the entitlement returns.
             if !isPro {
                 NotificationService.cancelDeadlineReminder()
+            } else {
+                Task { await HealthKitService.shared.rescheduleDeadlineReminder() }
             }
         }
     }
@@ -263,6 +265,10 @@ final class StoreService: NSObject, ObservableObject, PurchasesDelegate {
         } catch {
             errorMessage = "Restore failed. Please try again."
         }
+    }
+
+    func clearError() {
+        errorMessage = nil
     }
 
     /// Reports a custom-paywall impression to RevenueCat so the native paywall

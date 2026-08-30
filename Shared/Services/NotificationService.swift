@@ -10,6 +10,10 @@ enum NotificationService {
             .requestAuthorization(options: [.alert, .sound])) == true
     }
 
+    static func authorizationStatus() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
     /// Fire `leadMinutes` before the last moment the goal is still reachable.
     ///
     /// This is the only notification the app sends, and it is the one that is

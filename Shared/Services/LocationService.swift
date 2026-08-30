@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import os
+import WidgetKit
 
 /// A single coarse location fix, used only to work out when the sun sets.
 ///
@@ -96,6 +97,9 @@ extension LocationService: CLLocationManagerDelegate {
         Task { @MainActor in
             CachedLocation.store(latitude: latitude, longitude: longitude)
             self.status = .located(latitude: latitude, longitude: longitude)
+            WidgetCenter.shared.reloadAllTimelines()
+            WatchSyncService.shared.push(settings: DaylightSettings.shared.watchPayload)
+            await HealthKitService.shared.rescheduleDeadlineReminder()
         }
     }
 

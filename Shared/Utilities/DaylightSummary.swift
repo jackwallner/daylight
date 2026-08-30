@@ -179,8 +179,14 @@ enum DaylightSummary {
         excludingSourceBundleIDs excluded: Set<String> = []
     ) -> Double {
         samples
-            .filter { !excluded.contains($0.sourceBundleID) }
+            .filter { !isSourceExcluded($0.sourceBundleID, excluded: excluded) }
             .reduce(0) { $0 + max(0, $1.minutes) }
+    }
+
+    /// Source controls use the collapsed app identifier shown in the UI. Match
+    /// both that identifier and any legacy raw identifier already in defaults.
+    static func isSourceExcluded(_ bundleID: String, excluded: Set<String>) -> Bool {
+        excluded.contains(bundleID) || excluded.contains(appBundleID(for: bundleID))
     }
 
     /// Devices that contributed, newest write first.
@@ -236,7 +242,7 @@ enum DaylightSummary {
         let calendar = SolarCalculator.calendar
 
         var minutesByDay: [String: Double] = [:]
-        for sample in samples where !excluded.contains(sample.sourceBundleID) {
+        for sample in samples where !isSourceExcluded(sample.sourceBundleID, excluded: excluded) {
             let key = DateHelpers.dayKey(for: sample.start)
             minutesByDay[key, default: 0] += max(0, sample.minutes)
         }
@@ -268,6 +274,22 @@ enum DaylightSummary {
     /// How many of `totals` met their goal.
     static func daysMetGoal(_ totals: [DailyTotal]) -> Int {
         totals.filter(\.metGoal).count
+    }
+
+    /// Keep the target that applied when a day was cached. A target changed
+    /// today must not recolor previous days or rewrite past streaks.
+    static func applyingHistoricalGoals(
+        _ totals: [DailyTotal],
+        goalsByDay: [String: Double]
+    ) -> [DailyTotal] {
+        totals.map { total in
+            guard let historicalGoal = goalsByDay[total.dayKey], historicalGoal > 0 else {
+                return total
+            }
+            var updated = total
+            updated.goalMinutes = historicalGoal
+            return updated
+        }
     }
 
     /// Consecutive days meeting the goal, counting back from the most recent.
@@ -302,6 +324,23 @@ enum DaylightSummary {
         let today = SolarCalculator.day(for: now, latitude: latitude, longitude: longitude)
         guard let past = calendar.date(byAdding: .day, value: -days, to: now) else { return 0 }
         let earlier = SolarCalculator.day(for: past, latitude: latitude, longitude: longitude)
+        return (today.length - earlier.length) / 60
+    }
+
+    /// Seasonal change against the same calendar day in the prior month.
+    static func availableDaylightChangeSincePreviousMonth(
+        latitude: Double,
+        longitude: Double,
+        now: Date = .now
+    ) -> Double {
+        let calendar = SolarCalculator.calendar
+        let today = SolarCalculator.day(for: now, latitude: latitude, longitude: longitude)
+        guard let previousMonth = calendar.date(byAdding: .month, value: -1, to: now) else { return 0 }
+        let earlier = SolarCalculator.day(
+            for: previousMonth,
+            latitude: latitude,
+            longitude: longitude
+        )
         return (today.length - earlier.length) / 60
     }
 }

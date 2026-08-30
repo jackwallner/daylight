@@ -27,6 +27,7 @@ struct DaylightWatchApp: App {
                     #endif
                     await HealthKitService.shared.synchronizeAuthorization()
                     await HealthKitService.shared.refreshCache()
+                    scheduleRefresh()
                 }
         }
         .modelContainer(DataService.sharedModelContainer)

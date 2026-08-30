@@ -4,6 +4,18 @@ import os
 import SwiftData
 import WidgetKit
 
+private final class HealthObserverCompletion: @unchecked Sendable {
+    private let callback: () -> Void
+
+    init(_ callback: @escaping () -> Void) {
+        self.callback = callback
+    }
+
+    func call() {
+        callback()
+    }
+}
+
 /// Why the app might have nothing to show.
 ///
 /// The distinction matters more here than in a logging app: a user with no
@@ -12,8 +24,10 @@ import WidgetKit
 enum HealthReadState: Equatable {
     case notDetermined
     case receiving
-    /// Authorized, but Apple Health holds no daylight samples at all.
+    /// Authorized, but Apple Health holds no daylight samples at all yet.
     case noData
+    /// Apple Health has provided samples before, but none exist for today.
+    case noDataToday
 }
 
 @MainActor
@@ -38,7 +52,8 @@ final class HealthKitService: ObservableObject {
 
     var readState: HealthReadState {
         guard isAuthorized else { return .notDetermined }
-        return hasEverReadSamples ? .receiving : .noData
+        if !todaySamples.isEmpty { return .receiving }
+        return hasEverReadSamples ? .noDataToday : .noData
     }
 
     private init() {
@@ -190,7 +205,7 @@ final class HealthKitService: ObservableObject {
         let start = DateHelpers.daysAgo(count - 1, from: now)
         let samples = try await fetchSamples(from: start, to: DateHelpers.endOfDay(now))
         let location = CachedLocation.current
-        return DaylightSummary.dailyTotals(
+        let totals = DaylightSummary.dailyTotals(
             samples,
             days: count,
             goalMinutes: DaylightSettings.shared.dailyGoalMinutes,
@@ -199,6 +214,14 @@ final class HealthKitService: ObservableObject {
             now: now,
             excludingSourceBundleIDs: DaylightSettings.shared.excludedSourceBundleIDs
         )
+        let records = (try? DataService.sharedModelContainer.mainContext.fetch(
+            FetchDescriptor<DailyDaylightRecord>()
+        )) ?? []
+        var historicalGoals: [String: Double] = [:]
+        for record in records where record.goalMinutes > 0 {
+            historicalGoals[record.dateString] = record.goalMinutes
+        }
+        return DaylightSummary.applyingHistoricalGoals(totals, goalsByDay: historicalGoals)
     }
 
     // MARK: - Cache and observers
@@ -210,7 +233,7 @@ final class HealthKitService: ObservableObject {
         }
         let excluded = DaylightSettings.shared.excludedSourceBundleIDs
         for (index, sample) in todaySamples.enumerated()
-        where !excluded.contains(sample.sourceBundleID) {
+        where !DaylightSummary.isSourceExcluded(sample.sourceBundleID, excluded: excluded) {
             context.insert(CachedDaylightSample(
                 id: "\(DateHelpers.dayKey(for: sample.start))-\(index)",
                 start: sample.start,
@@ -236,7 +259,20 @@ final class HealthKitService: ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// Rebuild values derived from settings without re-querying HealthKit.
+    /// Source changes need this immediately so widgets do not keep the old sum.
+    func refreshDerivedCache(now: Date = .now) {
+        writeCache(now: now)
+        #if os(iOS)
+        Task { await rescheduleDeadlineReminder(now: now) }
+        #endif
+    }
+
     #if os(iOS)
+    func rescheduleDeadlineReminder(now: Date = .now) async {
+        await scheduleReminderIfNeeded(now: now)
+    }
+
     /// Schedule the "leave by" nudge, which is the one notification this app
     /// has any business sending.
     private func scheduleReminderIfNeeded(now: Date) async {
@@ -263,8 +299,11 @@ final class HealthKitService: ObservableObject {
         observerInstalled = true
         store.enableBackgroundDelivery(for: daylightType, frequency: .hourly) { _, _ in }
         let query = HKObserverQuery(sampleType: daylightType, predicate: nil) { [weak self] _, completion, _ in
-            completion()
-            Task { @MainActor in await self?.refreshCache() }
+            let observerCompletion = HealthObserverCompletion(completion)
+            Task { @MainActor in
+                await self?.refreshCache()
+                observerCompletion.call()
+            }
         }
         store.execute(query)
     }

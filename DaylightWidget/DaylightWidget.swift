@@ -8,6 +8,7 @@ import WidgetKit
 struct DaylightEntry: TimelineEntry {
     let date: Date
     let snapshot: DaylightSummary.Snapshot
+    let isUsingFallbackLocation: Bool
 
     static func placeholder(at date: Date = .now) -> DaylightEntry {
         let solar = SolarCalculator.day(for: date, latitude: 47.6062, longitude: -122.3321)
@@ -18,7 +19,8 @@ struct DaylightEntry: TimelineEntry {
                 goalMinutes: 20,
                 solar: solar,
                 now: date
-            )
+            ),
+            isUsingFallbackLocation: false
         )
     }
 }
@@ -48,7 +50,8 @@ enum DaylightEntryLoader {
                 goalMinutes: goal,
                 solar: solar,
                 now: date
-            )
+            ),
+            isUsingFallbackLocation: !location.isReal
         )
     }
 }
@@ -141,17 +144,24 @@ struct DaylightWidgetView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(Theme.textSecondary)
-                        .multilineTextAlignment(.trailing)
-                    Text("\(DaylightFormat.minutes(entry.snapshot.remainingMinutes)) of light left")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.textSecondary)
-                    if let sunset = entry.snapshot.solar.sunset {
-                        Text("sunset \(DaylightFormat.time(sunset))")
+                    if entry.isUsingFallbackLocation {
+                        Text("Open Daylight for local sunset")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                            .multilineTextAlignment(.trailing)
+                    } else {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                            .multilineTextAlignment(.trailing)
+                        Text("\(DaylightFormat.minutes(entry.snapshot.remainingMinutes)) of light left")
                             .font(.caption2)
                             .foregroundStyle(Theme.textSecondary)
+                        if let sunset = entry.snapshot.solar.sunset {
+                            Text("sunset \(DaylightFormat.time(sunset))")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.textSecondary)
+                        }
                     }
                 }
             }
@@ -159,6 +169,7 @@ struct DaylightWidgetView: View {
     }
 
     private var subtitle: String {
+        if entry.isUsingFallbackLocation { return "Open app for local sunset" }
         let snapshot = entry.snapshot
         if snapshot.metGoal { return "Target reached" }
         if let latestStart = snapshot.latestStart {

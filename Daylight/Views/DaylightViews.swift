@@ -116,23 +116,29 @@ private struct OnboardingPage<Actions: View>: View {
     @ViewBuilder var actions: Actions
 
     var body: some View {
-        VStack(spacing: 22) {
-            Spacer()
-            Image(systemName: symbol)
-                .font(.system(size: 62))
-                .foregroundStyle(Theme.sunGradient)
-            Text(title)
-                .font(.largeTitle.bold())
-                .multilineTextAlignment(.center)
-            Text(message)
-                .font(.callout)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Theme.textSecondary)
-            Spacer()
-            actions
-            Spacer().frame(height: 40)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 22) {
+                    Spacer(minLength: 24)
+                    Image(systemName: symbol)
+                        .font(.system(size: 62))
+                        .foregroundStyle(Theme.sunGradient)
+                    Text(title)
+                        .font(.largeTitle.bold())
+                        .multilineTextAlignment(.center)
+                    Text(message)
+                        .font(.callout)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(Theme.textSecondary)
+                    Spacer(minLength: 24)
+                    actions
+                    Spacer().frame(height: 40)
+                }
+                .frame(minHeight: geometry.size.height)
+                .padding(28)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
-        .padding(28)
     }
 }
 
@@ -159,7 +165,7 @@ struct DaylightTodayView: View {
                 // user leads with a giant zero. Say why immediately rather
                 // than four cards further down, where it read as an
                 // afterthought to a number that looked like a judgement.
-                if health.readState == .noData { noDataNotice }
+                healthNotice
                 deadlineCard
                 dayArcCard
                 sunCard
@@ -310,11 +316,48 @@ struct DaylightTodayView: View {
     }
 
     private var noDataNotice: some View {
-        NoticeCard(
+        let hasPreviousSamples = health.readState == .noDataToday
+        return NoticeCard(
             symbol: "applewatch.slash",
-            title: "No daylight minutes recorded yet",
-            message: "Daylight minutes come from Apple Watch. If you use one, it may not have recorded a sample yet. Without a watch that records it, the total stays at zero whatever you do outside. The sunrise, sunset, and daylight-remaining figures below still work."
-        )
+            title: hasPreviousSamples ? "No daylight sample today" : "No daylight minutes recorded yet",
+            message: hasPreviousSamples
+                ? "Apple Health has not provided a reading for today. Zero does not mean you stayed inside. Sunrise, sunset, and daylight remaining still work."
+                : "Apple Watch records this number automatically. Zero means Apple Health has no reading yet, not that you stayed inside. Sunrise, sunset, and daylight remaining still work.",
+            actionTitle: "Review Health access"
+        ) { openAppSettings() }
+    }
+
+    @ViewBuilder
+    private var healthNotice: some View {
+        if let error = health.lastError {
+            NoticeCard(
+                symbol: "exclamationmark.triangle.fill",
+                title: "Apple Health could not be read",
+                message: error,
+                actionTitle: "Try again"
+            ) {
+                Task { await health.refreshCache() }
+            }
+        } else {
+            switch health.readState {
+            case .notDetermined:
+                NoticeCard(
+                    symbol: "heart.text.square.fill",
+                    title: "Connect Apple Health to see your minutes",
+                    message: "Apple Watch records Time in Daylight. Daylight only reads that number and never writes anything back.",
+                    actionTitle: "Connect Apple Health"
+                ) {
+                    Task {
+                        try? await health.requestAuthorization()
+                        await health.refreshCache()
+                    }
+                }
+            case .noData, .noDataToday:
+                noDataNotice
+            case .receiving:
+                EmptyView()
+            }
+        }
     }
 
     @ViewBuilder
@@ -345,6 +388,11 @@ struct DaylightTodayView: View {
             longitude: coordinates.longitude
         ).length / 60
     }
+
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+    }
 }
 
 private struct SunStat: View {
@@ -371,6 +419,22 @@ private struct NoticeCard: View {
     let symbol: String
     let title: String
     let message: String
+    let actionTitle: String?
+    let action: (() -> Void)?
+
+    init(
+        symbol: String,
+        title: String,
+        message: String,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) {
+        self.symbol = symbol
+        self.title = title
+        self.message = message
+        self.actionTitle = actionTitle
+        self.action = action
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -379,6 +443,11 @@ private struct NoticeCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.subheadline.weight(.semibold))
                 Text(message).font(.footnote).foregroundStyle(Theme.textSecondary)
+                if let actionTitle, let action {
+                    Button(actionTitle, action: action)
+                        .font(.footnote.weight(.semibold))
+                        .padding(.top, 4)
+                }
             }
         }
         .padding(16)
@@ -460,6 +529,8 @@ struct DaylightTrendsView: View {
     @State private var totals: [DaylightSummary.DailyTotal] = []
     @State private var range = 7
     @State private var showPurchase = false
+    @State private var isLoading = false
+    @State private var loadError: String?
 
     /// Seven days is free. Everything past it is the paid tier, because the
     /// interesting comparisons only exist once there is a season of data.
@@ -472,7 +543,20 @@ struct DaylightTrendsView: View {
                 rangePicker
                 summaryCard
                 if store.isPro { seasonCard }
-                chart
+                if let loadError {
+                    NoticeCard(
+                        symbol: "exclamationmark.triangle.fill",
+                        title: "History could not be loaded",
+                        message: loadError,
+                        actionTitle: "Try again"
+                    ) { Task { await load() } }
+                } else if isLoading && totals.isEmpty {
+                    ProgressView("Loading history")
+                        .frame(maxWidth: .infinity)
+                        .padding(32)
+                } else {
+                    chart
+                }
                 if !store.isPro { upsell }
             }
             .padding(18)
@@ -537,8 +621,7 @@ struct DaylightTrendsView: View {
     /// worth opening in February.
     private var seasonCard: some View {
         let coordinates = LocationService.shared.coordinates
-        let change = DaylightSummary.availableDaylightChange(
-            days: 30,
+        let change = DaylightSummary.availableDaylightChangeSincePreviousMonth(
             latitude: coordinates.latitude,
             longitude: coordinates.longitude
         )
@@ -589,7 +672,14 @@ struct DaylightTrendsView: View {
 
     private func load() async {
         let days = store.isPro ? range : min(range, Self.freeDays)
-        totals = (try? await health.fetchHistory(days: days)) ?? []
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            totals = try await health.fetchHistory(days: days)
+            loadError = nil
+        } catch {
+            loadError = "Apple Health did not return your daylight history. Check Health access, then try again."
+        }
     }
 }
 
@@ -618,11 +708,16 @@ private struct HistoryBars: View {
                     RoundedRectangle(cornerRadius: 3)
                         .fill(total.metGoal ? Theme.amber : Theme.dusk.opacity(0.55))
                         .frame(height: max(2, geometry.size.height * total.minutes / maximum))
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(total.date.formatted(date: .abbreviated, time: .omitted))
+                        .accessibilityValue(
+                            "\(DaylightFormat.minutes(total.minutes)) in daylight, target \(DaylightFormat.minutes(total.goalMinutes))"
+                        )
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Daily minutes in daylight over the selected range")
     }
 }
@@ -630,12 +725,14 @@ private struct HistoryBars: View {
 // MARK: - Settings
 
 struct DaylightSettingsView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var settings: DaylightSettings
     @EnvironmentObject private var store: StoreService
     @StateObject private var health = HealthKitService.shared
     @StateObject private var location = LocationService.shared
     @State private var showPurchase = false
     @State private var reminderChangeInFlight = false
+    @State private var reminderPermissionDenied = false
 
     var body: some View {
         Form {
@@ -650,7 +747,11 @@ struct DaylightSettingsView: View {
                     Slider(
                         value: $settings.dailyGoalMinutes,
                         in: DaylightSettings.goalRange,
-                        step: 5
+                        step: 5,
+                        onEditingChanged: { isEditing in
+                            guard !isEditing else { return }
+                            health.refreshDerivedCache()
+                        }
                     )
                 }
                 Text("Your own preference for how much daylight to aim for. It is not a recommendation, a dose, or a safety threshold.")
@@ -701,9 +802,11 @@ struct DaylightSettingsView: View {
                             if enabled {
                                 let granted = await NotificationService.requestAuthorization()
                                 settings.reminderEnabled = granted
+                                reminderPermissionDenied = !granted
                                 if granted { await health.refreshCache() }
                             } else {
                                 settings.reminderEnabled = false
+                                reminderPermissionDenied = false
                                 NotificationService.cancelDeadlineReminder()
                             }
                             reminderChangeInFlight = false
@@ -717,9 +820,18 @@ struct DaylightSettingsView: View {
                         in: 5...120,
                         step: 5
                     )
+                    .onChange(of: settings.reminderLeadMinutes) { _, _ in
+                        Task { await health.rescheduleDeadlineReminder() }
+                    }
                 }
                 if !store.isPro {
                     Text("Included with Daylight+.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if reminderPermissionDenied {
+                    Button("Open notification settings", action: openAppSettings)
+                    Text("Notifications are off for Daylight. Enable them in Settings to use the reminder.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -727,7 +839,7 @@ struct DaylightSettingsView: View {
 
             Section("Daylight+") {
                 LabeledContent("Status", value: store.isPro ? "Active" : "Free")
-                Button(store.isPro ? "Manage purchase" : "See Daylight+") { showPurchase = true }
+                Button(store.isPro ? "View purchase options" : "See Daylight+") { showPurchase = true }
                 Button {
                     Task { await store.restore() }
                 } label: {
@@ -764,6 +876,11 @@ struct DaylightSettingsView: View {
         .safeAreaPadding(.bottom, 80)
         .tint(Theme.amber)
         .sheet(isPresented: $showPurchase) { DaylightPurchaseView() }
+        .task { await refreshReminderPermission() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await refreshReminderPermission() }
+        }
     }
 
     private var healthStatusLabel: String {
@@ -771,6 +888,7 @@ struct DaylightSettingsView: View {
         case .notDetermined: "Not connected"
         case .receiving: "Receiving"
         case .noData: "No samples yet"
+        case .noDataToday: "No sample today"
         }
     }
 
@@ -784,6 +902,11 @@ struct DaylightSettingsView: View {
     private func openAppSettings() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
+    }
+
+    private func refreshReminderPermission() async {
+        let status = await NotificationService.authorizationStatus()
+        reminderPermissionDenied = settings.reminderEnabled && status == .denied
     }
 }
 
@@ -806,7 +929,10 @@ struct DaylightSourcesView: View {
                 ForEach(health.sources) { source in
                     Toggle(isOn: Binding(
                         get: { !settings.excludedSourceBundleIDs.contains(source.bundleID) },
-                        set: { settings.setSourceIncluded($0, bundleID: source.bundleID, name: source.name) }
+                        set: {
+                            settings.setSourceIncluded($0, bundleID: source.bundleID, name: source.name)
+                            health.refreshDerivedCache()
+                        }
                     )) {
                         VStack(alignment: .leading) {
                             Text(source.name)
@@ -828,6 +954,7 @@ struct DaylightPurchaseView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: StoreService
     @State private var selectedPackageIdentifier: String?
+    @State private var isRestoring = false
 
     var body: some View {
         NavigationStack {
@@ -880,6 +1007,10 @@ struct DaylightPurchaseView: View {
                             .foregroundStyle(.red)
                     }
 
+                    if let selectedPackage {
+                        billedAmount(for: selectedPackage)
+                    }
+
                     Button {
                         guard let package = selectedPackage else { return }
                         Task {
@@ -899,7 +1030,20 @@ struct DaylightPurchaseView: View {
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Theme.textSecondary)
 
-                    Button("Restore purchases") { Task { await store.restore() } }
+                    Button {
+                        Task {
+                            isRestoring = true
+                            await store.restore()
+                            isRestoring = false
+                        }
+                    } label: {
+                        if isRestoring {
+                            ProgressView()
+                        } else {
+                            Text("Restore purchases")
+                        }
+                    }
+                    .disabled(store.isLoading)
                     HStack {
                         Link("Terms", destination: DaylightLinks.standardEULA)
                         Text("·")
@@ -926,6 +1070,7 @@ struct DaylightPurchaseView: View {
             }
         }
         .onAppear { store.trackPaywallImpression(id: "daylight_paywall") }
+        .onDisappear { store.clearError() }
     }
 
     private var selectedPackage: Package? {
@@ -939,20 +1084,46 @@ struct DaylightPurchaseView: View {
     private var purchaseButtonLabel: String {
         if store.isLoading { return "Processing..." }
         guard let selectedPackage else { return "Choose a plan" }
-        if let trial = store.eligibleIntroLabel(for: selectedPackage) {
-            return "Start \(trial)"
-        }
-        return "Continue with \(selectedPackage.daylightDisplayName)"
+        return ConversionCopy.ctaLabel(
+            trialLabel: store.eligibleIntroLabel(for: selectedPackage),
+            priceLabel: selectedPackage.daylightPriceLabel,
+            eligibleForTrial: store.isEligibleForIntroOffer(selectedPackage)
+        )
     }
 
     private var purchaseDisclosure: String {
         if selectedPackage?.daylightPackageKind == .lifetime {
-            return "One-time purchase. There is no subscription or automatic renewal. Prices are shown before you buy and vary by region."
+            return "\(selectedPackage?.daylightPriceLabel ?? ""). One-time purchase with no subscription or automatic renewal."
         }
-        if selectedPackage != nil {
-            return "Subscriptions renew automatically until cancelled. Cancel at least 24 hours before the period ends in your Apple ID settings. Prices are shown before you buy and vary by region."
+        if let selectedPackage {
+            return ConversionCopy.disclosure(
+                trialLabel: store.eligibleIntroLabel(for: selectedPackage),
+                priceLabel: selectedPackage.daylightPriceLabel,
+                eligibleForTrial: store.isEligibleForIntroOffer(selectedPackage)
+            )
         }
         return "Prices are shown before you buy and vary by region."
+    }
+
+    private func billedAmount(for package: Package) -> some View {
+        return VStack(spacing: 4) {
+            Text("BILLED AMOUNT")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
+            Text(ConversionCopy.billedAmount(priceLabel: package.daylightPriceLabel))
+                .font(.title2.bold())
+            Text(package.daylightPackageKind == .lifetime
+                 ? "One-time purchase"
+                 : ConversionCopy.billedNote(
+                    trialLabel: store.eligibleIntroLabel(for: package),
+                    eligibleForTrial: store.isEligibleForIntroOffer(package)
+                 ))
+                .font(.caption)
+                .foregroundStyle(Theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
     }
 
     private func selectDefaultPackage() {

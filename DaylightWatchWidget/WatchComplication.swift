@@ -5,6 +5,7 @@ import WidgetKit
 struct WatchDaylightEntry: TimelineEntry {
     let date: Date
     let snapshot: DaylightSummary.Snapshot
+    let isUsingFallbackLocation: Bool
 
     static func placeholder(at date: Date = .now) -> WatchDaylightEntry {
         let solar = SolarCalculator.day(for: date, latitude: 47.6062, longitude: -122.3321)
@@ -15,7 +16,8 @@ struct WatchDaylightEntry: TimelineEntry {
                 goalMinutes: 20,
                 solar: solar,
                 now: date
-            )
+            ),
+            isUsingFallbackLocation: false
         )
     }
 }
@@ -60,7 +62,8 @@ struct WatchDaylightProvider: TimelineProvider {
                 goalMinutes: goal,
                 solar: solar,
                 now: date
-            )
+            ),
+            isUsingFallbackLocation: !location.isReal
         )
     }
 }
@@ -110,6 +113,7 @@ struct WatchDaylightComplicationView: View {
     }
 
     private var subtitle: String {
+        if entry.isUsingFallbackLocation { return "Open app for sunset" }
         let snapshot = entry.snapshot
         if snapshot.metGoal { return "Target reached" }
         if let latestStart = snapshot.latestStart {

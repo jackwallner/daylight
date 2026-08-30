@@ -170,6 +170,21 @@ final class DaylightSummaryTests: XCTestCase {
         XCTAssertEqual(total, 12)
     }
 
+    func testCollapsedWatchSourceExclusionAppliesToEveryBundleVariant() {
+        let samples = [
+            sample(minutes: 12, bundleID: "com.example.recorder"),
+            sample(minutes: 8, bundleID: "com.example.recorder.watch"),
+            sample(minutes: 5, bundleID: "com.apple.health"),
+        ]
+
+        let total = DaylightSummary.totalMinutes(
+            samples,
+            excludingSourceBundleIDs: ["com.example.recorder"]
+        )
+
+        XCTAssertEqual(total, 5)
+    }
+
     func testNegativeMinutesAreIgnoredRatherThanSubtracted() {
         let samples = [
             sample(minutes: 12, bundleID: "com.apple.health"),
@@ -217,6 +232,24 @@ final class DaylightSummaryTests: XCTestCase {
         XCTAssertTrue(totals.allSatisfy { $0.availableMinutes > 0 })
     }
 
+    func testDailyTotalsApplyCollapsedWatchSourceExclusion() {
+        let now = date("2026-06-21 20:00")
+        let totals = DaylightSummary.dailyTotals(
+            [
+                sample(minutes: 30, bundleID: "com.example.recorder.watch", start: now),
+                sample(minutes: 10, bundleID: "com.apple.health", start: now),
+            ],
+            days: 1,
+            goalMinutes: 20,
+            latitude: seattle.latitude,
+            longitude: seattle.longitude,
+            now: now,
+            excludingSourceBundleIDs: ["com.example.recorder"]
+        )
+
+        XCTAssertEqual(totals.first?.minutes, 10)
+    }
+
     func testShareOfAvailableIsNilWhenThereWasNoDaylight() {
         let total = DaylightSummary.DailyTotal(
             dayKey: "2026-12-21",
@@ -236,6 +269,23 @@ final class DaylightSummaryTests: XCTestCase {
         ]
         XCTAssertEqual(DaylightSummary.average(totals), 20, accuracy: 0.01)
         XCTAssertEqual(DaylightSummary.daysMetGoal(totals), 2)
+    }
+
+    func testHistoricalGoalsDoNotChangeWithTheCurrentTarget() {
+        let totals = [
+            total(minutes: 25, goal: 60, daysAgo: 0),
+            total(minutes: 25, goal: 60, daysAgo: 1),
+        ]
+        let priorDayKey = totals[1].dayKey
+
+        let updated = DaylightSummary.applyingHistoricalGoals(
+            totals,
+            goalsByDay: [priorDayKey: 20]
+        )
+
+        XCTAssertFalse(updated[0].metGoal)
+        XCTAssertTrue(updated[1].metGoal)
+        XCTAssertEqual(updated[1].goalMinutes, 20)
     }
 
     func testAverageOfNothingIsZeroRatherThanACrash() {
@@ -282,6 +332,29 @@ final class DaylightSummaryTests: XCTestCase {
             now: date("2026-04-15 12:00")
         )
         XCTAssertGreaterThan(change, 0)
+    }
+
+    func testPreviousMonthComparisonUsesCalendarMonth() {
+        let now = date("2026-03-31 12:00")
+        let expectedPast = calendar().date(byAdding: .month, value: -1, to: now)!
+        let today = SolarCalculator.day(
+            for: now,
+            latitude: seattle.latitude,
+            longitude: seattle.longitude
+        )
+        let past = SolarCalculator.day(
+            for: expectedPast,
+            latitude: seattle.latitude,
+            longitude: seattle.longitude
+        )
+
+        let change = DaylightSummary.availableDaylightChangeSincePreviousMonth(
+            latitude: seattle.latitude,
+            longitude: seattle.longitude,
+            now: now
+        )
+
+        XCTAssertEqual(change, (today.length - past.length) / 60, accuracy: 0.01)
     }
 
     // MARK: - Helpers
