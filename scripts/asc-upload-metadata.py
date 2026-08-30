@@ -33,7 +33,13 @@ from asc_lib import (
 )
 
 
-def patch_version_loc(client: ASCClient, loc: dict, locale: str) -> None:
+def patch_version_loc(
+    client: ASCClient,
+    loc: dict,
+    locale: str,
+    *,
+    include_whats_new: bool,
+) -> None:
     attrs: dict = {}
     desc = read_meta(locale, "description")
     kw = read_meta(locale, "keywords")
@@ -42,7 +48,7 @@ def patch_version_loc(client: ASCClient, loc: dict, locale: str) -> None:
         attrs["description"] = desc[:4000]
     if kw:
         attrs["keywords"] = kw[:100]
-    if rn:
+    if rn and include_whats_new:
         attrs["whatsNew"] = rn[:4000]
     for src, dst in (
         ("support_url", "supportUrl"),
@@ -169,7 +175,12 @@ def main() -> None:
                 except RuntimeError as e:
                     print(f"info-fail ({e})", end=" ")
         try:
-            patch_version_loc(client, ver_locs[locale], locale)
+            patch_version_loc(
+                client,
+                ver_locs[locale],
+                locale,
+                include_whats_new=live is not None,
+            )
             print("ok" + (" +info" if info_ok else ""))
             updated += 1
         except RuntimeError as e:

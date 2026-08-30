@@ -35,6 +35,29 @@ enum ScreenshotFixtures {
             )
         }
     }
+
+    /// Thirty paired days where sleep continuity is the only clear signal.
+    /// The symmetric values for every other metric have zero linear
+    /// relationship with the steadily increasing daylight series.
+    static func healthDays() -> [DaylightSummary.HealthDay] {
+        (0..<30).map { offset in
+            let centered = Double(offset) - 14.5
+            let curve = centered * centered
+            let date = DateHelpers.daysAgo(29 - offset)
+            return DaylightSummary.HealthDay(
+                dayKey: DateHelpers.dayKey(for: date),
+                daylightMinutes: 10 + Double(offset) * 2.5,
+                sleepDurationMinutes: 420 + curve * 0.08,
+                sleepContinuity: 0.76 + Double(offset) * 0.004,
+                steps: 6_000 + curve * 14,
+                exerciseMinutes: 20 + curve * 0.08,
+                activeEnergyCalories: 380 + curve * 0.7,
+                restingHeartRate: 58 + curve * 0.012,
+                heartRateVariabilityMilliseconds: 48 + curve * 0.03,
+                respiratoryRate: 14 + curve * 0.002
+            )
+        }
+    }
 }
 
 private extension Int {

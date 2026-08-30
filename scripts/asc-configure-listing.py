@@ -18,21 +18,23 @@ APP_NAME = "Daylight Left"
 AGE_TEMPLATE_BUNDLE_ID = os.environ.get(
     "ASC_AGE_TEMPLATE_BUNDLE_ID", "com.jackwallner.vitals"
 )
-REVIEW_NOTES = """Daylight Left reads the HealthKit timeInDaylight type only. It never writes to Apple Health.
+REVIEW_NOTES = """Daylight reads HealthKit's Time in Daylight, sleep analysis, steps, Apple exercise time, active energy, resting heart rate, heart-rate variability, and respiratory rate. It never writes to Apple Health or uploads Health data.
 
 TO TEST WITHOUT HEALTH DATA: complete onboarding and open Today. The screen works with no Apple Health samples at all. It shows how much daylight is left before sunset, today's sunrise and sunset, the day length, and the latest time you could head out to reach your daily target. Only the "minutes spent in daylight" figure needs Health data.
 
 TIME IN DAYLIGHT is recorded by Apple Watch using its ambient light sensor. A reviewer testing on iPhone alone will see zero minutes spent, and the app says so explicitly rather than implying the user stayed indoors.
 
-PERMISSIONS: onboarding asks for HealthKit read access and, separately, one approximate location fix. Both are skippable. Location is used only to compute sunrise and sunset on device. No location or health data leaves the device, and there is no background location tracking.
+PERMISSIONS: onboarding asks for read-only HealthKit access and, separately, one approximate location fix. Both are skippable. Time in Daylight powers the free daily total. The other Health types power the Daylight+ Personal Daylight Model. Location is used only to compute sunrise and sunset on device. No location or Health data leaves the device, and there is no background location tracking.
 
 NO ACCOUNT IS REQUIRED. There is no login, ad network, or server storing anything.
 
-TODAY IS FREE. Daylight remaining, the sunrise and sunset times, the daily target, the head-out-by time, source controls, widgets, complications, and seven days of history all work with no purchase.
+TODAY'S NUMBERS ARE FREE. Daylight remaining, the sunrise and sunset times, the daily target, the head-out-by time, source controls, widgets, complications, and seven days of history all work with no purchase.
 
-DAYLIGHT+ is an optional monthly or yearly subscription, each with a 7-day free trial for eligible customers, or a one-time lifetime purchase. It adds history past seven days, the month-over-month daylight comparison, and a reminder before the daily deadline.
+DAYLIGHT+ is an optional monthly or yearly subscription, each with a 7-day free trial for eligible customers, or a one-time lifetime purchase. It adds the on-device Personal Daylight Model, history past seven days, the month-over-month daylight comparison, and a reminder before the daily deadline.
 
-Sunrise and sunset are astronomical calculations. Minutes in daylight are reported from Apple Health. The app does not diagnose, treat, cure, or prevent anything, and makes no claim about mood, vitamin D, sleep, or eyesight."""
+The Personal Daylight Model compares the user's recorded signals, leaves missing data out, applies a conservative uncertainty check across all eight signals, and may report no clear relationship. Its results are observational and do not prove that daylight caused a change.
+
+Sunrise and sunset are astronomical calculations. Minutes in daylight are reported from Apple Health. The app does not diagnose, treat, cure, or prevent anything, and makes no claim that daylight improves mood, sleep, vitamin D, or eyesight."""
 
 
 def review_phone() -> str:

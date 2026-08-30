@@ -6,9 +6,11 @@ import UIKit
 
 struct DaylightOnboardingView: View {
     @EnvironmentObject private var settings: DaylightSettings
+    @EnvironmentObject private var store: StoreService
     @StateObject private var health = HealthKitService.shared
     @StateObject private var location = LocationService.shared
     @State private var page = Self.debugStartPage
+    @State private var showPurchase = false
 
     var body: some View {
         TabView(selection: $page) {
@@ -16,17 +18,20 @@ struct DaylightOnboardingView: View {
             healthAccess.tag(1)
             locationAccess.tag(2)
             goal.tag(3)
+            plus.tag(4)
         }
         .tabViewStyle(.page)
         .background(Theme.background)
+        .sheet(isPresented: $showPurchase) { DaylightPurchaseView() }
     }
 
     private var welcome: some View {
         OnboardingPage(
             symbol: "sun.max.fill",
-            title: "Daylight",
-            message: "Track the minutes you spend in daylight against a target you set. Then, when you are short, the app works out the latest you could head out and still reach it before sunset."
+            title: "Know what you got, and when to go",
+            message: "Your Apple Watch records minutes in daylight. Daylight puts that total against a target you choose, calculates how much light remains, and tells you the latest you could head out to finish before sunset."
         ) {
+            OnboardingExampleCard()
             Button("Get started") { page = 1 }
                 .buttonStyle(SunButtonStyle())
         }
@@ -35,8 +40,8 @@ struct DaylightOnboardingView: View {
     private var healthAccess: some View {
         OnboardingPage(
             symbol: "heart.text.square.fill",
-            title: "Read your daylight minutes",
-            message: "Your Apple Watch records Time in Daylight using its ambient light sensor. This app reads that number and never writes anything back. Without a watch that records it, the sunrise and sunset half still works."
+            title: "Connect the full picture",
+            message: "Daylight asks Apple Health for daylight, sleep, activity, heart, and breathing records. The Daylight+ Personal Daylight Model checks which signals actually line up for you. Everything is read-only, analyzed on this device, and never sent to us. You can choose each type in Apple's permission sheet."
         ) {
             Button("Connect Apple Health") {
                 Task {
@@ -86,12 +91,40 @@ struct DaylightOnboardingView: View {
                 )
                 .tint(Theme.amber)
             }
-            Button("Start") {
-                settings.hasCompletedSetup = true
-                Task { await health.refreshCache() }
-            }
+            Button("Continue") { page = 4 }
             .buttonStyle(SunButtonStyle())
         }
+    }
+
+    private var plus: some View {
+        OnboardingPage(
+            symbol: "waveform.path.ecg.rectangle.fill",
+            title: "Find what lines up for you",
+            message: "Daylight+ runs a private model across your records. It highlights only clear relationships and says when none appear. A result might find sleep continuity stands out while heart, breathing, and activity do not. Relationships are not proof of cause or medical advice."
+        ) {
+            VStack(alignment: .leading, spacing: 10) {
+                PlusBenefitRow(symbol: "sparkles", text: "Personal Daylight Model")
+                PlusBenefitRow(symbol: "calendar", text: "Full history and seasonal context")
+                PlusBenefitRow(symbol: "bell.fill", text: "Deadline reminders")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if store.isPro {
+                Button("Start with Daylight+") { completeSetup() }
+                    .buttonStyle(SunButtonStyle())
+            } else {
+                Button("See Daylight+") { showPurchase = true }
+                    .buttonStyle(SunButtonStyle())
+                Button("Continue with the free version") { completeSetup() }
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+        }
+    }
+
+    private func completeSetup() {
+        settings.hasCompletedSetup = true
+        Task { await health.refreshCache() }
     }
 
     /// DEBUG hook so a headless run can screenshot any single page.
@@ -106,6 +139,45 @@ struct DaylightOnboardingView: View {
         #else
         return 0
         #endif
+    }
+}
+
+private struct OnboardingExampleCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("EXAMPLE")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Text("44m of 60m")
+                    .font(.headline.monospacedDigit())
+            }
+            ProgressView(value: 44.0, total: 60.0)
+                .tint(Theme.amber)
+            HStack {
+                Label("Head out by", systemImage: "figure.walk")
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Text("4:36 PM")
+                    .font(.headline.monospacedDigit())
+            }
+        }
+        .padding(16)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Example: 44 minutes of a 60 minute target. Head out by 4:36 PM.")
+    }
+}
+
+private struct PlusBenefitRow: View {
+    let symbol: String
+    let text: String
+
+    var body: some View {
+        Label(text, systemImage: symbol)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Theme.textPrimary)
     }
 }
 
@@ -531,6 +603,9 @@ struct DaylightTrendsView: View {
     @State private var showPurchase = false
     @State private var isLoading = false
     @State private var loadError: String?
+    @State private var personalModel: DaylightSummary.PersonalHealthModel?
+    @State private var isModelLoading = false
+    @State private var modelLoadFailed = false
 
     /// Seven days is free. Everything past it is the paid tier, because the
     /// interesting comparisons only exist once there is a season of data.
@@ -542,7 +617,10 @@ struct DaylightTrendsView: View {
             VStack(spacing: 16) {
                 rangePicker
                 summaryCard
-                if store.isPro { seasonCard }
+                if store.isPro {
+                    personalModelCard
+                    seasonCard
+                }
                 if let loadError {
                     NoticeCard(
                         symbol: "exclamationmark.triangle.fill",
@@ -643,6 +721,116 @@ struct DaylightTrendsView: View {
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
     }
 
+    private var personalModelCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Personal Daylight Model", systemImage: "waveform.path.ecg.rectangle.fill")
+                .font(.headline)
+            if isModelLoading && personalModel == nil {
+                ProgressView("Checking your Health records")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if let relationship = personalModel?.strongestClearRelationship {
+                Text("One clear relationship")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.dusk)
+                    .textCase(.uppercase)
+                Text(healthSignalTitle(relationship.signal))
+                    .font(.title2.bold())
+                Text(relationshipSummary(relationship))
+                    .font(.callout)
+                Text(modelCoverageSummary)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textSecondary)
+            } else if let personalModel, personalModel.evaluatedCount > 0 {
+                Text("No clear relationship yet")
+                    .font(.title2.bold())
+                Text("The model checked \(personalModel.evaluatedCount) signals and none separated clearly from ordinary variation in your records.")
+                    .font(.callout)
+            } else {
+                Text("Build your personal model")
+                    .font(.title2.bold())
+                Text(modelLoadFailed
+                     ? "Health data was not available. Review access, then try again."
+                     : "Daylight needs at least 14 paired days for each signal. Missing records are left out, never treated as zero.")
+                    .font(.callout)
+                Button("Review Health access") {
+                    Task {
+                        try? await health.requestAuthorization()
+                        await loadPersonalModel()
+                    }
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.amber)
+            }
+
+            DisclosureGroup("How this is calculated") {
+                Text("The model compares recorded daylight with sleep, steps, exercise, active energy, resting heart rate, heart-rate variability, and respiratory rate. It shows a relationship only when a conservative uncertainty check, adjusted for all eight signals, excludes no relationship. Everything runs on this device. A relationship is not proof that daylight caused the result or medical advice.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.top, 6)
+            }
+            .font(.footnote.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(Theme.elevated, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+    }
+
+    private var modelCoverageSummary: String {
+        guard let personalModel,
+              let strongest = personalModel.strongestClearRelationship
+        else { return "" }
+        let otherCount = max(0, personalModel.evaluatedCount - 1)
+        let otherText = otherCount == 1 ? "1 other signal" : "\(otherCount) other signals"
+        return "Based on \(strongest.sampleCount) paired days. No other clear relationship appeared across \(otherText)."
+    }
+
+    private func healthSignalTitle(_ signal: DaylightSummary.HealthSignal) -> String {
+        switch signal {
+        case .sleepDuration: "Sleep duration"
+        case .sleepContinuity: "Sleep continuity"
+        case .steps: "Steps"
+        case .exerciseMinutes: "Exercise time"
+        case .activeEnergy: "Active energy"
+        case .restingHeartRate: "Resting heart rate"
+        case .heartRateVariability: "Heart-rate variability"
+        case .respiratoryRate: "Respiratory rate"
+        }
+    }
+
+    private func relationshipSummary(
+        _ relationship: DaylightSummary.HealthRelationship
+    ) -> String {
+        guard let difference = relationship.outcomeDifference else {
+            return "This signal moved with your recorded daylight."
+        }
+        let direction = difference >= 0 ? "higher" : "lower"
+        let amount = abs(difference)
+        switch relationship.signal {
+        case .sleepDuration:
+            let duration = DaylightFormat.minutes(amount)
+            let comparison = difference >= 0 ? "longer" : "shorter"
+            return "Your recorded sleep averaged \(duration) \(comparison) after higher-daylight days."
+        case .sleepContinuity:
+            let points = Int((amount * 100).rounded())
+            let comparison = difference >= 0 ? "more" : "less"
+            return "Your recorded sleep was \(points) percentage points \(comparison) continuous after higher-daylight days."
+        case .steps:
+            let count = Int(amount.rounded()).formatted()
+            let comparison = difference >= 0 ? "more" : "fewer"
+            return "Your step count averaged \(count) \(comparison) on higher-daylight days."
+        case .exerciseMinutes:
+            return "Your exercise time averaged \(DaylightFormat.minutes(amount)) \(direction) on higher-daylight days."
+        case .activeEnergy:
+            return "Your active energy averaged \(Int(amount.rounded())) calories \(direction) on higher-daylight days."
+        case .restingHeartRate:
+            return "Your resting heart rate averaged \(amount.formatted(.number.precision(.fractionLength(1)))) beats per minute \(direction) on higher-daylight days."
+        case .heartRateVariability:
+            return "Your heart-rate variability averaged \(amount.formatted(.number.precision(.fractionLength(1)))) milliseconds \(direction) on higher-daylight days."
+        case .respiratoryRate:
+            return "Your respiratory rate averaged \(amount.formatted(.number.precision(.fractionLength(1)))) breaths per minute \(direction) on higher-daylight days."
+        }
+    }
+
     private var chart: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Minutes in daylight")
@@ -657,9 +845,9 @@ struct DaylightTrendsView: View {
 
     private var upsell: some View {
         VStack(spacing: 10) {
-            Text("See the whole year")
+            Text("Find your clearest pattern")
                 .font(.headline)
-            Text("Daylight+ unlocks history past seven days, the seasonal comparison, and a reminder before your daily deadline.")
+            Text("Daylight+ privately checks how your daylight lines up with sleep, activity, heart, and breathing records. It also unlocks full history, seasonal context, and deadline reminders.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Theme.textSecondary)
@@ -677,8 +865,21 @@ struct DaylightTrendsView: View {
         do {
             totals = try await health.fetchHistory(days: days)
             loadError = nil
+            if store.isPro { await loadPersonalModel() }
         } catch {
             loadError = "Apple Health did not return your daylight history. Check Health access, then try again."
+        }
+    }
+
+    private func loadPersonalModel() async {
+        isModelLoading = true
+        defer { isModelLoading = false }
+        do {
+            personalModel = try await health.fetchPersonalHealthModel(days: max(90, range))
+            modelLoadFailed = false
+        } catch {
+            personalModel = nil
+            modelLoadFailed = true
         }
     }
 }
@@ -768,7 +969,7 @@ struct DaylightSettingsView: View {
                 }
                 NavigationLink("Included sources") { DaylightSourcesView() }
                 LabeledContent("Daylight data", value: healthStatusLabel)
-                Text("Daylight only reads Time in Daylight. It never writes to Apple Health.")
+                Text("Daylight reads Time in Daylight plus sleep, activity, heart, and breathing records for the Personal Daylight Model. It never writes to Apple Health, uploads Health data, or treats missing data as zero.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -839,6 +1040,9 @@ struct DaylightSettingsView: View {
 
             Section("Daylight+") {
                 LabeledContent("Status", value: store.isPro ? "Active" : "Free")
+                Text("Includes the Personal Daylight Model, full history, seasonal context, and deadline reminders.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Button(store.isPro ? "View purchase options" : "See Daylight+") { showPurchase = true }
                 Button {
                     Task { await store.restore() }
@@ -965,9 +1169,18 @@ struct DaylightPurchaseView: View {
                         .foregroundStyle(Theme.sunGradient)
                     Text("Daylight+")
                         .font(.largeTitle.bold())
-                    Text("Today's numbers stay free. Upgrade for history past seven days, the seasonal comparison, and a reminder before your daily deadline.")
+                    Text("See which parts of your Health record actually line up with daylight. Today's total, moving deadline, and seven-day history stay free.")
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Theme.textSecondary)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        PlusBenefitRow(symbol: "waveform.path.ecg.rectangle.fill", text: "Personal model across 8 Health signals")
+                        PlusBenefitRow(symbol: "checkmark.seal.fill", text: "Only clear relationships are highlighted")
+                        PlusBenefitRow(symbol: "lock.shield.fill", text: "Calculated privately on this device")
+                        PlusBenefitRow(symbol: "calendar", text: "Full history and seasonal context")
+                        PlusBenefitRow(symbol: "bell.fill", text: "Deadline reminders")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     ForEach(store.packages, id: \.identifier) { package in
                         Button {

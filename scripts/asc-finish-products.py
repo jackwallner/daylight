@@ -96,6 +96,11 @@ def upload_asset(c: asc_lib.ASCClient, res_type: str, rel_key: str, rel_type: st
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--screenshot", required=True, help="PNG shown to App Review for each product")
+    ap.add_argument(
+        "--replace",
+        action="store_true",
+        help="replace an existing App Review screenshot with this file",
+    )
     args = ap.parse_args()
     png = Path(args.screenshot)
     if not png.is_file():
@@ -110,14 +115,24 @@ def main() -> None:
         for sub in asc_lib.list_all(c, f"/subscriptionGroups/{g['id']}/subscriptions"):
             sid, pid = sub["id"], sub["attributes"]["productId"]
             print(f"{pid}: availability {ensure_sub_availability(c, sid, territories)}")
-            if c.get(f"/subscriptions/{sid}/appStoreReviewScreenshot").get("data"):
+            existing = c.get(f"/subscriptions/{sid}/appStoreReviewScreenshot").get("data")
+            if existing and args.replace:
+                c.delete(f"/subscriptionAppStoreReviewScreenshots/{existing['id']}")
+                print(f"{pid}: removed stale screenshot")
+                existing = None
+            if existing:
                 print(f"{pid}: screenshot already set")
             else:
                 print(f"{pid}: screenshot {upload_asset(c, 'subscriptionAppStoreReviewScreenshots', 'subscription', 'subscriptions', sid, png)}")
 
     for iap in asc_lib.list_all(c, f"/apps/{app_id}/inAppPurchasesV2"):
         iid, pid = iap["id"], iap["attributes"]["productId"]
-        if iap_screenshot(c, iid):
+        existing = iap_screenshot(c, iid)
+        if existing and args.replace:
+            c.delete(f"/inAppPurchaseAppStoreReviewScreenshots/{existing['id']}")
+            print(f"{pid}: removed stale screenshot")
+            existing = None
+        if existing:
             print(f"{pid}: screenshot already set")
         else:
             print(f"{pid}: screenshot {upload_asset(c, 'inAppPurchaseAppStoreReviewScreenshots', 'inAppPurchaseV2', 'inAppPurchases', iid, png)}")
@@ -132,4 +147,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

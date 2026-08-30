@@ -85,7 +85,7 @@ def main() -> None:
     for index, (pid, name, display_name, period, price, description) in enumerate(SUBS):
         sub = existing.get(pid)
         if not sub:
-            sub = c.post("/subscriptions", {"data": {"type": "subscriptions", "attributes": {"name": name, "productId": pid, "subscriptionPeriod": period, "familySharable": False, "groupLevel": 1, "reviewNote": "Unlocks Daylight+: history past seven days, the month-over-month daylight comparison, and a reminder before the daily deadline. Daylight remaining, sunrise and sunset, the daily target, the head-out-by time, source controls, widgets, complications, and seven days of history are free."}, "relationships": {"group": {"data": {"type": "subscriptionGroups", "id": group_id}}}}})["data"]
+            sub = c.post("/subscriptions", {"data": {"type": "subscriptions", "attributes": {"name": name, "productId": pid, "subscriptionPeriod": period, "familySharable": False, "groupLevel": 1, "reviewNote": "Unlocks Daylight+: the on-device Personal Daylight Model, history past seven days, the month-over-month daylight comparison, and a reminder before the daily deadline. Daylight remaining, sunrise and sunset, the daily target, the head-out-by time, source controls, widgets, complications, and seven days of history are free."}, "relationships": {"group": {"data": {"type": "subscriptionGroups", "id": group_id}}}}})["data"]
         sid = sub["id"]
         locs = {x["attributes"]["locale"]: x for x in asc_lib.list_all(c, f"/subscriptions/{sid}/subscriptionLocalizations")}
         product_prefix = "monthly" if period == "ONE_MONTH" else "yearly"

@@ -226,8 +226,11 @@ final class DaylightSummaryTests: XCTestCase {
         )
         XCTAssertEqual(totals.count, 3)
         XCTAssertEqual(totals[0].minutes, 30)
+        XCTAssertTrue(totals[0].hasRecordedData)
         XCTAssertEqual(totals[1].minutes, 0)
+        XCTAssertFalse(totals[1].hasRecordedData)
         XCTAssertEqual(totals[2].minutes, 0)
+        XCTAssertFalse(totals[2].hasRecordedData)
         // Every day carries the daylight it actually offered.
         XCTAssertTrue(totals.allSatisfy { $0.availableMinutes > 0 })
     }
@@ -355,6 +358,77 @@ final class DaylightSummaryTests: XCTestCase {
         )
 
         XCTAssertEqual(change, (today.length - past.length) / 60, accuracy: 0.01)
+    }
+
+    // MARK: - Personal health model
+
+    func testSleepStagesAcrossMidnightFormOneNightAndOverlapsAreMerged() {
+        let samples = [
+            DaylightSummary.SleepSample(
+                start: date("2026-06-20 22:00"),
+                end: date("2026-06-21 01:00"),
+                state: .asleep
+            ),
+            DaylightSummary.SleepSample(
+                start: date("2026-06-21 00:30"),
+                end: date("2026-06-21 06:00"),
+                state: .asleep
+            ),
+            DaylightSummary.SleepSample(
+                start: date("2026-06-21 03:00"),
+                end: date("2026-06-21 03:30"),
+                state: .awake
+            ),
+        ]
+
+        let night = DaylightSummary.sleepNights(samples)["2026-06-20"]
+
+        XCTAssertEqual(night?.asleepMinutes, 480)
+        XCTAssertEqual(night?.awakeMinutes, 30)
+        XCTAssertEqual(night?.continuity ?? 0, 480.0 / 510.0, accuracy: 0.001)
+    }
+
+    func testPersonalModelHighlightsOnlyClearRelationship() {
+        let days = (0..<30).map { index in
+            let centered = Double(index) - 14.5
+            let unrelated = centered * centered
+            return DaylightSummary.HealthDay(
+                dayKey: "day-\(index)",
+                daylightMinutes: Double(index),
+                sleepDurationMinutes: 420 + unrelated,
+                sleepContinuity: 0.70 + Double(index) * 0.005,
+                steps: 5_000 + unrelated,
+                exerciseMinutes: 20 + unrelated,
+                activeEnergyCalories: 300 + unrelated,
+                restingHeartRate: 60 + unrelated,
+                heartRateVariabilityMilliseconds: 45 + unrelated,
+                respiratoryRate: 14 + unrelated
+            )
+        }
+
+        let model = DaylightSummary.personalHealthModel(days: days)
+
+        XCTAssertEqual(model.evaluatedCount, DaylightSummary.HealthSignal.allCases.count)
+        XCTAssertEqual(model.strongestClearRelationship?.signal, .sleepContinuity)
+        XCTAssertEqual(
+            model.relationships.filter(\.isClear).map(\.signal),
+            [.sleepContinuity]
+        )
+    }
+
+    func testPersonalModelDoesNotInterpretSparseOrConstantData() {
+        let sparse = (0..<10).map { index in
+            DaylightSummary.HealthDay(
+                dayKey: "day-\(index)",
+                daylightMinutes: 30,
+                sleepDurationMinutes: 400 + Double(index)
+            )
+        }
+
+        let model = DaylightSummary.personalHealthModel(days: sparse)
+
+        XCTAssertEqual(model.evaluatedCount, 0)
+        XCTAssertNil(model.strongestClearRelationship)
     }
 
     // MARK: - Helpers

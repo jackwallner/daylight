@@ -1,1 +1,1 @@
-First release.
+Daylight+ now includes a private Personal Daylight Model that checks how your recorded daylight lines up with sleep, activity, heart, and breathing records. Onboarding now explains the daily total, moving deadline, Health access, and Plus plan before you begin.

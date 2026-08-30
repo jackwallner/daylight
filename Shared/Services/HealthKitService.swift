@@ -45,10 +45,36 @@ final class HealthKitService: ObservableObject {
     /// iOS 17 / watchOS 10. Written by Apple Watch from its ambient light
     /// sensor, in minutes, as a cumulative type.
     private let daylightType = HKQuantityType(.timeInDaylight)
+    #if os(iOS)
+    private let sleepType = HKCategoryType(.sleepAnalysis)
+    private let stepType = HKQuantityType(.stepCount)
+    private let exerciseType = HKQuantityType(.appleExerciseTime)
+    private let activeEnergyType = HKQuantityType(.activeEnergyBurned)
+    private let restingHeartRateType = HKQuantityType(.restingHeartRate)
+    private let heartRateVariabilityType = HKQuantityType(.heartRateVariabilitySDNN)
+    private let respiratoryRateType = HKQuantityType(.respiratoryRate)
+    #endif
     private let logger = Logger(subsystem: "com.jackwallner.daylight", category: "HealthKit")
     private let defaults = UserDefaults(suiteName: daylightAppGroupID) ?? .standard
     private var observerInstalled = false
     private static let hasEverReadSamplesKey = "hasEverReadDaylightSamples"
+
+    private var readTypes: Set<HKObjectType> {
+        #if os(iOS)
+        return [
+            daylightType,
+            sleepType,
+            stepType,
+            exerciseType,
+            activeEnergyType,
+            restingHeartRateType,
+            heartRateVariabilityType,
+            respiratoryRateType,
+        ]
+        #else
+        return [daylightType]
+        #endif
+    }
 
     var readState: HealthReadState {
         guard isAuthorized else { return .notDetermined }
@@ -74,7 +100,7 @@ final class HealthKitService: ObservableObject {
             return
         }
         guard HKHealthStore.isHealthDataAvailable() else { return }
-        try await store.requestAuthorization(toShare: [], read: [daylightType])
+        try await store.requestAuthorization(toShare: [], read: readTypes)
         isAuthorized = true
         enableBackgroundDelivery()
     }
@@ -86,7 +112,7 @@ final class HealthKitService: ObservableObject {
         }
         guard HKHealthStore.isHealthDataAvailable() else { return }
         let status = await withCheckedContinuation { continuation in
-            store.getRequestStatusForAuthorization(toShare: [], read: [daylightType]) { value, _ in
+            store.getRequestStatusForAuthorization(toShare: [], read: readTypes) { value, _ in
                 continuation.resume(returning: value)
             }
         }
@@ -223,6 +249,179 @@ final class HealthKitService: ObservableObject {
         }
         return DaylightSummary.applyingHistoricalGoals(totals, goalsByDay: historicalGoals)
     }
+
+    #if os(iOS)
+    /// Build Daylight+'s private model from every Health type named in the
+    /// permission sheet. Nothing is persisted or sent off the device.
+    func fetchPersonalHealthModel(
+        days: Int = 90,
+        now: Date = .now
+    ) async throws -> DaylightSummary.PersonalHealthModel {
+        #if DEBUG
+        if ScreenshotConfig.isEnabled {
+            return DaylightSummary.personalHealthModel(days: ScreenshotFixtures.healthDays())
+        }
+        #endif
+
+        let count = min(Self.maximumHistoryDays, max(days, 14))
+        let start = DateHelpers.daysAgo(count, from: now)
+        let end = DateHelpers.endOfDay(now)
+        let totals = try await fetchHistory(days: count, now: now)
+        let sleepSamples = (try? await fetchSleepSamples(from: start, to: end)) ?? []
+        let sleepNights = DaylightSummary.sleepNights(sleepSamples)
+        let steps = (try? await fetchDailyStatistics(
+            type: stepType,
+            unit: .count(),
+            option: .cumulativeSum,
+            from: start,
+            to: end
+        )) ?? [:]
+        let exercise = (try? await fetchDailyStatistics(
+            type: exerciseType,
+            unit: .minute(),
+            option: .cumulativeSum,
+            from: start,
+            to: end
+        )) ?? [:]
+        let activeEnergy = (try? await fetchDailyStatistics(
+            type: activeEnergyType,
+            unit: .kilocalorie(),
+            option: .cumulativeSum,
+            from: start,
+            to: end
+        )) ?? [:]
+        let beatsPerMinute = HKUnit.count().unitDivided(by: .minute())
+        let restingHeartRate = (try? await fetchDailyStatistics(
+            type: restingHeartRateType,
+            unit: beatsPerMinute,
+            option: .discreteAverage,
+            from: start,
+            to: end
+        )) ?? [:]
+        let heartRateVariability = (try? await fetchDailyStatistics(
+            type: heartRateVariabilityType,
+            unit: .secondUnit(with: .milli),
+            option: .discreteAverage,
+            from: start,
+            to: end
+        )) ?? [:]
+        let respiratoryRate = (try? await fetchDailyStatistics(
+            type: respiratoryRateType,
+            unit: beatsPerMinute,
+            option: .discreteAverage,
+            from: start,
+            to: end
+        )) ?? [:]
+
+        let days = totals.compactMap { total -> DaylightSummary.HealthDay? in
+            guard total.hasRecordedData else { return nil }
+            let sleep = sleepNights[total.dayKey]
+            return DaylightSummary.HealthDay(
+                dayKey: total.dayKey,
+                daylightMinutes: total.minutes,
+                sleepDurationMinutes: sleep?.asleepMinutes,
+                sleepContinuity: sleep?.continuity,
+                steps: steps[total.dayKey],
+                exerciseMinutes: exercise[total.dayKey],
+                activeEnergyCalories: activeEnergy[total.dayKey],
+                restingHeartRate: restingHeartRate[total.dayKey],
+                heartRateVariabilityMilliseconds: heartRateVariability[total.dayKey],
+                respiratoryRate: respiratoryRate[total.dayKey]
+            )
+        }
+        return DaylightSummary.personalHealthModel(days: days)
+    }
+
+    private func fetchSleepSamples(
+        from start: Date,
+        to end: Date
+    ) async throws -> [DaylightSummary.SleepSample] {
+        guard HKHealthStore.isHealthDataAvailable() else { return [] }
+        let predicate = HKQuery.predicateForSamples(
+            withStart: start,
+            end: end,
+            options: [.strictStartDate]
+        )
+        let sort = [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]
+        return try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: sleepType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: sort
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                let mapped: [DaylightSummary.SleepSample] = (samples as? [HKCategorySample] ?? []).compactMap { sample in
+                    let state: DaylightSummary.SleepState
+                    switch HKCategoryValueSleepAnalysis(rawValue: sample.value) {
+                    case .asleepUnspecified, .asleepCore, .asleepDeep, .asleepREM:
+                        state = .asleep
+                    case .awake:
+                        state = .awake
+                    case .inBed, .none:
+                        return nil
+                    @unknown default:
+                        return nil
+                    }
+                    return DaylightSummary.SleepSample(
+                        start: sample.startDate,
+                        end: sample.endDate,
+                        state: state
+                    )
+                }
+                continuation.resume(returning: mapped)
+            }
+            store.execute(query)
+        }
+    }
+
+    private func fetchDailyStatistics(
+        type: HKQuantityType,
+        unit: HKUnit,
+        option: HKStatisticsOptions,
+        from start: Date,
+        to end: Date
+    ) async throws -> [String: Double] {
+        guard HKHealthStore.isHealthDataAvailable() else { return [:] }
+        let predicate = HKQuery.predicateForSamples(
+            withStart: start,
+            end: end,
+            options: [.strictStartDate]
+        )
+        let query = HKStatisticsCollectionQuery(
+            quantityType: type,
+            quantitySamplePredicate: predicate,
+            options: option,
+            anchorDate: DateHelpers.startOfDay(start),
+            intervalComponents: DateComponents(day: 1)
+        )
+        return try await withCheckedThrowingContinuation { continuation in
+            query.initialResultsHandler = { _, collection, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let collection else {
+                    continuation.resume(returning: [:])
+                    return
+                }
+                var values: [String: Double] = [:]
+                collection.enumerateStatistics(from: start, to: end) { statistics, _ in
+                    let quantity = option == .cumulativeSum
+                        ? statistics.sumQuantity()
+                        : statistics.averageQuantity()
+                    guard let quantity else { return }
+                    values[DateHelpers.dayKey(for: statistics.startDate)] = quantity.doubleValue(for: unit)
+                }
+                continuation.resume(returning: values)
+            }
+            store.execute(query)
+        }
+    }
+    #endif
 
     // MARK: - Cache and observers
 

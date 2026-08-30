@@ -18,6 +18,11 @@ TRENDS
 - An unfinished day never breaks a live streak
 - Compare today's available daylight with the same day a month ago, a number that comes from the sun whether or not you went outside
 
+PERSONAL DAYLIGHT MODEL
+- Daylight+ compares daylight with sleep, activity, heart, and breathing records on your device
+- It highlights only clear relationships and says when none appear
+- Results include sample size and never claim that daylight caused the change
+
 ON YOUR WRIST AND HOME SCREEN
 - Apple Watch app leading with your minutes and your target
 - Watch complications in circular, rectangular, inline, and corner styles, each showing progress toward the target
@@ -27,13 +32,13 @@ CALCULATED ON YOUR DEVICE
 Sunrise and sunset come from the NOAA solar position algorithm and one approximate location fix. There is no server, no lookup service, and no background tracking. Polar day and polar night are handled properly, including the civil twilight window when the sun never rises.
 
 APPLE HEALTH
-The app reads Time in Daylight and never writes to Apple Health. You choose which sources count. A phone and a watch from the same app are collapsed into one row so nothing is counted twice.
+The app reads Time in Daylight for your daily total. With permission, Daylight+ also reads sleep, activity, heart, and breathing records for its on-device model. Health data is never uploaded, sold, used for advertising, or written back to Apple Health. You choose which daylight sources count.
 
 WHAT IS FREE
 Your daily minutes and target, daylight remaining, sunrise and sunset, day length, the head-out-by deadline, Apple Health source controls, widgets, complications, and seven days of history.
 
 DAYLIGHT+
-An optional subscription that unlocks history past seven days, the month-over-month daylight comparison, and a reminder before your daily deadline. Available monthly or yearly, each with a one-week free trial for eligible customers, or as a one-time lifetime purchase.
+An optional subscription that unlocks the Personal Daylight Model, history past seven days, the month-over-month daylight comparison, and a reminder before your daily deadline. Available monthly or yearly, each with a one-week free trial for eligible customers, or as a one-time lifetime purchase.
 
 Your subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Your Apple Account is charged at confirmation of purchase and again at each renewal. Manage or cancel in your Apple Account settings. Any unused portion of a free trial is forfeited when a subscription is purchased. Prices are shown in the app before you buy and vary by region.
 
@@ -41,6 +46,6 @@ Privacy Policy: https://jackwallner.github.io/daylight/privacy-policy.html
 Terms of Use (Apple Standard EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
 
 A NOTE ON WHAT THIS IS
-Daylight reports what your devices recorded and what the sun offers. Your daily target is your own preference, not a recommendation. The app does not diagnose, treat, cure, or prevent anything, and makes no claim about mood, sleep, vitamin D, or eyesight.
+Daylight reports what your devices recorded and what the sun offers. Your daily target is your own preference, not a recommendation. Personal model results are observational and do not prove that daylight caused a result. The app does not diagnose, treat, cure, or prevent anything, and makes no claim that daylight improves mood, sleep, vitamin D, or eyesight.
 
 Time in Daylight is recorded by Apple Watch. Without one, the minutes figure stays at zero and the app says so on the first screen; everything computed from the sun still works.

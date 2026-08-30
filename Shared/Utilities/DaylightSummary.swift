@@ -54,6 +54,10 @@ enum DaylightSummary {
         /// Daylight that was available that day, from the sun alone.
         var availableMinutes: Double
         var goalMinutes: Double
+        /// Whether Apple Health returned at least one daylight sample for this
+        /// date. The personal model excludes missing days instead of assuming
+        /// that an absent Watch record means zero exposure.
+        var hasRecordedData: Bool = true
 
         var metGoal: Bool { minutes >= goalMinutes }
 
@@ -63,6 +67,124 @@ enum DaylightSummary {
         var shareOfAvailable: Double? {
             guard availableMinutes > 0 else { return nil }
             return min(1, minutes / availableMinutes)
+        }
+    }
+
+    enum SleepState: Equatable {
+        case asleep
+        case awake
+    }
+
+    /// One Apple Health sleep stage. In-bed samples are excluded because they
+    /// overlap the stage records and are not proof that the user was asleep.
+    struct SleepSample: Equatable {
+        var start: Date
+        var end: Date
+        var state: SleepState = .asleep
+    }
+
+    /// A within-person comparison between nights following the user's higher
+    /// and lower recorded daylight days. This is deliberately descriptive. It
+    /// does not assign a score or infer that daylight caused the difference.
+    struct SleepPattern: Equatable {
+        var higherDaylightMinutes: Double
+        var lowerDaylightMinutes: Double
+        var higherDaylightSleepMinutes: Double
+        var lowerDaylightSleepMinutes: Double
+        var nightsPerGroup: Int
+
+        var pairedNightCount: Int { nightsPerGroup * 2 }
+        var sleepDifferenceMinutes: Double {
+            higherDaylightSleepMinutes - lowerDaylightSleepMinutes
+        }
+    }
+
+    struct SleepNight: Equatable {
+        var dayKey: String
+        var asleepMinutes: Double
+        var awakeMinutes: Double?
+
+        var continuity: Double? {
+            guard let awakeMinutes else { return nil }
+            let total = asleepMinutes + awakeMinutes
+            guard total > 0 else { return nil }
+            return asleepMinutes / total
+        }
+    }
+
+    enum HealthSignal: String, CaseIterable, Equatable, Identifiable {
+        case sleepDuration
+        case sleepContinuity
+        case steps
+        case exerciseMinutes
+        case activeEnergy
+        case restingHeartRate
+        case heartRateVariability
+        case respiratoryRate
+
+        var id: String { rawValue }
+    }
+
+    struct HealthDay: Equatable {
+        var dayKey: String
+        var daylightMinutes: Double
+        var sleepDurationMinutes: Double? = nil
+        var sleepContinuity: Double? = nil
+        var steps: Double? = nil
+        var exerciseMinutes: Double? = nil
+        var activeEnergyCalories: Double? = nil
+        var restingHeartRate: Double? = nil
+        var heartRateVariabilityMilliseconds: Double? = nil
+        var respiratoryRate: Double? = nil
+
+        func value(for signal: HealthSignal) -> Double? {
+            switch signal {
+            case .sleepDuration: sleepDurationMinutes
+            case .sleepContinuity: sleepContinuity
+            case .steps: steps
+            case .exerciseMinutes: exerciseMinutes
+            case .activeEnergy: activeEnergyCalories
+            case .restingHeartRate: restingHeartRate
+            case .heartRateVariability: heartRateVariabilityMilliseconds
+            case .respiratoryRate: respiratoryRate
+            }
+        }
+    }
+
+    struct HealthRelationship: Equatable, Identifiable {
+        var id: HealthSignal { signal }
+        var signal: HealthSignal
+        var sampleCount: Int
+        var correlation: Double? = nil
+        var confidenceLow: Double? = nil
+        var confidenceHigh: Double? = nil
+        var lowerDaylightAverage: Double? = nil
+        var higherDaylightAverage: Double? = nil
+        var lowerOutcomeAverage: Double? = nil
+        var higherOutcomeAverage: Double? = nil
+
+        var isClear: Bool {
+            guard let confidenceLow, let confidenceHigh else { return false }
+            return confidenceLow > 0 || confidenceHigh < 0
+        }
+
+        var outcomeDifference: Double? {
+            guard let lowerOutcomeAverage, let higherOutcomeAverage else { return nil }
+            return higherOutcomeAverage - lowerOutcomeAverage
+        }
+    }
+
+    struct PersonalHealthModel: Equatable {
+        var relationships: [HealthRelationship]
+
+        var strongestClearRelationship: HealthRelationship? {
+            relationships
+                .filter(\.isClear)
+                .max { abs($0.correlation ?? 0) < abs($1.correlation ?? 0) }
+        }
+
+        var evaluatedCount: Int {
+            relationships.filter { $0.correlation != nil }.count
         }
     }
 
@@ -255,12 +377,14 @@ enum DaylightSummary {
             ) else { return nil }
             let key = DateHelpers.dayKey(for: date)
             let solar = SolarCalculator.day(for: date, latitude: latitude, longitude: longitude)
+            let recordedMinutes = minutesByDay[key]
             return DailyTotal(
                 dayKey: key,
                 date: date,
-                minutes: minutesByDay[key] ?? 0,
+                minutes: recordedMinutes ?? 0,
                 availableMinutes: solar.length / 60,
-                goalMinutes: goalMinutes
+                goalMinutes: goalMinutes,
+                hasRecordedData: recordedMinutes != nil
             )
         }
     }
@@ -290,6 +414,188 @@ enum DaylightSummary {
             updated.goalMinutes = historicalGoal
             return updated
         }
+    }
+
+    // MARK: - Daylight and sleep
+
+    /// Compare recorded sleep following the user's higher- and lower-daylight
+    /// days. The middle observation is omitted for an odd sample count so both
+    /// groups remain the same size.
+    ///
+    /// A sleep stage ending before noon is associated with the prior day by
+    /// shifting its end back 12 hours. This keeps stages on either side of
+    /// midnight in the same night. Overlapping stages and duplicate sources are
+    /// merged before duration is calculated.
+    static func sleepPattern(
+        daylightTotals: [DailyTotal],
+        sleepSamples: [SleepSample],
+        minimumNightsPerGroup: Int = 3
+    ) -> SleepPattern? {
+        guard minimumNightsPerGroup > 0 else { return nil }
+        let sleepByDay = sleepMinutesByPrecedingDay(sleepSamples)
+        let pairs = daylightTotals.compactMap { total -> (daylight: Double, sleep: Double)? in
+            guard let sleep = sleepByDay[total.dayKey], sleep > 0 else { return nil }
+            return (max(0, total.minutes), sleep)
+        }
+        .sorted { lhs, rhs in
+            if lhs.daylight == rhs.daylight { return lhs.sleep < rhs.sleep }
+            return lhs.daylight < rhs.daylight
+        }
+
+        let groupSize = pairs.count / 2
+        guard groupSize >= minimumNightsPerGroup else { return nil }
+        let lower = Array(pairs.prefix(groupSize))
+        let higher = Array(pairs.suffix(groupSize))
+        let lowerDaylight = mean(lower.map(\.daylight))
+        let higherDaylight = mean(higher.map(\.daylight))
+        guard higherDaylight - lowerDaylight >= 1 else { return nil }
+
+        return SleepPattern(
+            higherDaylightMinutes: higherDaylight,
+            lowerDaylightMinutes: lowerDaylight,
+            higherDaylightSleepMinutes: mean(higher.map(\.sleep)),
+            lowerDaylightSleepMinutes: mean(lower.map(\.sleep)),
+            nightsPerGroup: groupSize
+        )
+    }
+
+    static func sleepMinutesByPrecedingDay(
+        _ samples: [SleepSample]
+    ) -> [String: Double] {
+        sleepNights(samples).mapValues(\.asleepMinutes)
+    }
+
+    static func sleepNights(_ samples: [SleepSample]) -> [String: SleepNight] {
+        let asleep = intervalMinutesByPrecedingDay(
+            samples.filter { $0.state == .asleep }
+        )
+        let awake = intervalMinutesByPrecedingDay(
+            samples.filter { $0.state == .awake }
+        )
+        let keys = Set(asleep.keys).union(awake.keys)
+        return Dictionary(uniqueKeysWithValues: keys.compactMap { key in
+            guard let asleepMinutes = asleep[key], asleepMinutes > 0 else { return nil }
+            return (
+                key,
+                SleepNight(
+                    dayKey: key,
+                    asleepMinutes: asleepMinutes,
+                    awakeMinutes: awake[key]
+                )
+            )
+        })
+    }
+
+    private static func intervalMinutesByPrecedingDay(
+        _ samples: [SleepSample]
+    ) -> [String: Double] {
+        var intervalsByDay: [String: [(start: Date, end: Date)]] = [:]
+        for sample in samples where sample.end > sample.start {
+            let keyDate = sample.end.addingTimeInterval(-12 * 3600)
+            let key = DateHelpers.dayKey(for: keyDate)
+            intervalsByDay[key, default: []].append((sample.start, sample.end))
+        }
+
+        return intervalsByDay.mapValues { intervals in
+            let sorted = intervals.sorted { $0.start < $1.start }
+            guard var current = sorted.first else { return 0 }
+            var duration: TimeInterval = 0
+            for interval in sorted.dropFirst() {
+                if interval.start <= current.end {
+                    current.end = max(current.end, interval.end)
+                } else {
+                    duration += current.end.timeIntervalSince(current.start)
+                    current = interval
+                }
+            }
+            duration += current.end.timeIntervalSince(current.start)
+            return duration / 60
+        }
+    }
+
+    /// Evaluate every signal the app requested. A result is only called clear
+    /// when its confidence interval excludes zero after a Bonferroni correction
+    /// across all eight checks.
+    /// Sparse signals remain in the result so the UI can say they were checked
+    /// without pretending there was enough data.
+    static func personalHealthModel(
+        days: [HealthDay],
+        minimumSampleCount: Int = 14
+    ) -> PersonalHealthModel {
+        let relationships = HealthSignal.allCases.map { signal in
+            relationship(
+                signal: signal,
+                pairs: days.compactMap { day in
+                    guard let outcome = day.value(for: signal) else { return nil }
+                    return (day.daylightMinutes, outcome)
+                },
+                minimumSampleCount: minimumSampleCount
+            )
+        }
+        return PersonalHealthModel(relationships: relationships)
+    }
+
+    private static func relationship(
+        signal: HealthSignal,
+        pairs: [(daylight: Double, outcome: Double)],
+        minimumSampleCount: Int
+    ) -> HealthRelationship {
+        let count = pairs.count
+        guard count >= max(4, minimumSampleCount),
+              let correlation = pearsonCorrelation(pairs)
+        else {
+            return HealthRelationship(signal: signal, sampleCount: count)
+        }
+
+        let sorted = pairs.sorted { $0.daylight < $1.daylight }
+        let groupSize = count / 2
+        let lower = Array(sorted.prefix(groupSize))
+        let higher = Array(sorted.suffix(groupSize))
+        let bounded = min(0.999_999, max(-0.999_999, correlation))
+        let fisher = 0.5 * log((1 + bounded) / (1 - bounded))
+        // Two-sided alpha .05 / 8. This keeps the family-wise false-positive
+        // rate at 5% even though the model checks eight Health signals.
+        let correctedCriticalValue = 2.734
+        let margin = correctedCriticalValue / sqrt(Double(count - 3))
+        let low = tanh(fisher - margin)
+        let high = tanh(fisher + margin)
+
+        return HealthRelationship(
+            signal: signal,
+            sampleCount: count,
+            correlation: correlation,
+            confidenceLow: low,
+            confidenceHigh: high,
+            lowerDaylightAverage: mean(lower.map(\.daylight)),
+            higherDaylightAverage: mean(higher.map(\.daylight)),
+            lowerOutcomeAverage: mean(lower.map(\.outcome)),
+            higherOutcomeAverage: mean(higher.map(\.outcome))
+        )
+    }
+
+    private static func pearsonCorrelation(
+        _ pairs: [(daylight: Double, outcome: Double)]
+    ) -> Double? {
+        let daylightMean = mean(pairs.map(\.daylight))
+        let outcomeMean = mean(pairs.map(\.outcome))
+        var numerator = 0.0
+        var daylightSquares = 0.0
+        var outcomeSquares = 0.0
+        for pair in pairs {
+            let daylightDelta = pair.daylight - daylightMean
+            let outcomeDelta = pair.outcome - outcomeMean
+            numerator += daylightDelta * outcomeDelta
+            daylightSquares += daylightDelta * daylightDelta
+            outcomeSquares += outcomeDelta * outcomeDelta
+        }
+        let denominator = sqrt(daylightSquares * outcomeSquares)
+        guard denominator > 0 else { return nil }
+        return numerator / denominator
+    }
+
+    private static func mean(_ values: [Double]) -> Double {
+        guard !values.isEmpty else { return 0 }
+        return values.reduce(0, +) / Double(values.count)
     }
 
     /// Consecutive days meeting the goal, counting back from the most recent.
