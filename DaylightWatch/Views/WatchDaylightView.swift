@@ -108,10 +108,19 @@ struct WatchDaylightView: View {
                 Text(DaylightFormat.time(latestStart))
                     .font(.title3.bold())
             }
-        } else {
+        } else if snapshot.isGoalStillPossible {
             Text("\(DaylightFormat.minutes(snapshot.minutesToGoal)) short")
                 .font(.caption)
                 .foregroundStyle(Theme.warning)
+        } else {
+            VStack(spacing: 1) {
+                Text("Not enough daylight")
+                    .font(.caption)
+                    .foregroundStyle(Theme.warning)
+                Text("\(DaylightFormat.minutes(snapshot.minutesToGoal)) short")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.textSecondary)
+            }
         }
     }
 }

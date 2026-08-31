@@ -6,6 +6,10 @@ import XCTest
 /// the edges: already met, already impossible, and the polar cases.
 final class DaylightSummaryTests: XCTestCase {
 
+    func testRevenueCatEntitlementMatchesLiveLookupKey() {
+        XCTAssertEqual(RevenueCatConfig.proEntitlement, "daylight")
+    }
+
     private let seattle = (latitude: 47.6062, longitude: -122.3321)
 
     private func date(_ value: String, _ zone: String = "America/Los_Angeles") -> Date {
@@ -272,6 +276,22 @@ final class DaylightSummaryTests: XCTestCase {
         ]
         XCTAssertEqual(DaylightSummary.average(totals), 20, accuracy: 0.01)
         XCTAssertEqual(DaylightSummary.daysMetGoal(totals), 2)
+    }
+
+    func testAverageDoesNotTreatMissingSamplesAsZero() {
+        let totals = [
+            total(minutes: 30, goal: 20, daysAgo: 0),
+            DaylightSummary.DailyTotal(
+                dayKey: "missing",
+                date: date("2026-06-20 12:00"),
+                minutes: 0,
+                availableMinutes: 900,
+                goalMinutes: 20,
+                hasRecordedData: false
+            ),
+        ]
+
+        XCTAssertEqual(DaylightSummary.average(totals), 30, accuracy: 0.01)
     }
 
     func testHistoricalGoalsDoNotChangeWithTheCurrentTarget() {

@@ -59,10 +59,14 @@ final class HealthKitService: ObservableObject {
     private var observerInstalled = false
     private static let hasEverReadSamplesKey = "hasEverReadDaylightSamples"
 
-    private var readTypes: Set<HKObjectType> {
+    private var coreReadTypes: Set<HKObjectType> {
+        [daylightType]
+    }
+
+    private func readTypes(includePersonalModel: Bool) -> Set<HKObjectType> {
         #if os(iOS)
-        return [
-            daylightType,
+        guard includePersonalModel else { return coreReadTypes }
+        return coreReadTypes.union([
             sleepType,
             stepType,
             exerciseType,
@@ -70,9 +74,9 @@ final class HealthKitService: ObservableObject {
             restingHeartRateType,
             heartRateVariabilityType,
             respiratoryRateType,
-        ]
+        ])
         #else
-        return [daylightType]
+        return coreReadTypes
         #endif
     }
 
@@ -94,13 +98,16 @@ final class HealthKitService: ObservableObject {
     /// the Info.plist still carries `NSHealthUpdateUsageDescription` because
     /// App Store Connect's static analysis sees `requestAuthorization(toShare:
     /// read:)` in the binary and rejects the upload without it (error 90683).
-    func requestAuthorization() async throws {
+    func requestAuthorization(includePersonalModel: Bool = false) async throws {
         if ScreenshotConfig.isEnabled {
             isAuthorized = true
             return
         }
         guard HKHealthStore.isHealthDataAvailable() else { return }
-        try await store.requestAuthorization(toShare: [], read: readTypes)
+        try await store.requestAuthorization(
+            toShare: [],
+            read: readTypes(includePersonalModel: includePersonalModel)
+        )
         isAuthorized = true
         enableBackgroundDelivery()
     }
@@ -111,8 +118,11 @@ final class HealthKitService: ObservableObject {
             return
         }
         guard HKHealthStore.isHealthDataAvailable() else { return }
+        // Check only the core daylight type. An app update can add optional
+        // premium signals without making an existing daylight reader look
+        // disconnected until the user chooses to grant those new permissions.
         let status = await withCheckedContinuation { continuation in
-            store.getRequestStatusForAuthorization(toShare: [], read: readTypes) { value, _ in
+            store.getRequestStatusForAuthorization(toShare: [], read: coreReadTypes) { value, _ in
                 continuation.resume(returning: value)
             }
         }
@@ -426,6 +436,7 @@ final class HealthKitService: ObservableObject {
     // MARK: - Cache and observers
 
     private func writeCache(now: Date) {
+        defaults.set(!todaySamples.isEmpty, forKey: daylightHasRecordedSampleKey)
         let context = DataService.sharedModelContainer.mainContext
         if let cached = try? context.fetch(FetchDescriptor<CachedDaylightSample>()) {
             cached.forEach(context.delete)

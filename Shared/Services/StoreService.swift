@@ -8,11 +8,8 @@ import WidgetKit
 enum RevenueCatConfig {
     /// Public iOS SDK key. Secret `sk_` keys must never ship in an app binary.
     static let publicSDKKey = "appl_VnhgOrjipNjYfjjdNwZcAaKxBou"
-    /// Entitlement lookup key. Must match what the RevenueCat dashboard has
-    /// for this project. `isPro` falls back to any active entitlement, so a
-    /// mismatch here goes unnoticed until someone reads this constant.
-    /// Confirm it in the dashboard before the first release.
-    static let proEntitlement = "Daylight+"
+    /// Lookup key in RevenueCat. `Daylight+` is the display name only.
+    static let proEntitlement = "daylight"
 }
 
 /// Product identifiers, which must match `Daylight.storekit` and the App Store
@@ -237,7 +234,7 @@ final class StoreService: NSObject, ObservableObject, PurchasesDelegate {
                 return .cancelled
             }
             if isPro { return .purchased }
-            errorMessage = "Purchase pending approval. Daylight+ will unlock when Apple confirms it."
+            errorMessage = ConversionCopy.purchasePendingMessage
             return .pending
         } catch {
             let nsError = error as NSError
@@ -363,9 +360,7 @@ final class StoreService: NSObject, ObservableObject, PurchasesDelegate {
     }
 
     private func update(customerInfo: CustomerInfo) {
-        // Single premium tier: any active entitlement unlocks Daylight+, which
-        // survives entitlement renames or casing drift in the RC dashboard.
-        isPro = !customerInfo.entitlements.active.isEmpty
+        isPro = customerInfo.entitlements.active[RevenueCatConfig.proEntitlement] != nil
         defaults.set(isPro, forKey: Self.cachedProKey)
     }
 

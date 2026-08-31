@@ -5,6 +5,7 @@ import SwiftData
 let daylightAppGroupID = "group.com.jackwallner.daylight"
 let daylightCachedProKey = "isPro"
 let daylightGoalMinutesKey = "dailyGoalMinutes"
+let daylightHasRecordedSampleKey = "hasRecordedDaylightSample"
 let daylightExcludedSourcesKey = "excludedSourceBundleIDs"
 let daylightExcludedSourceNamesKey = "excludedSourceNames"
 let daylightHasCompletedSetupKey = "hasCompletedSetup"

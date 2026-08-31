@@ -8,6 +8,7 @@ import WidgetKit
 struct DaylightEntry: TimelineEntry {
     let date: Date
     let snapshot: DaylightSummary.Snapshot
+    let hasRecordedData: Bool
     let isUsingFallbackLocation: Bool
 
     static func placeholder(at date: Date = .now) -> DaylightEntry {
@@ -20,6 +21,7 @@ struct DaylightEntry: TimelineEntry {
                 solar: solar,
                 now: date
             ),
+            hasRecordedData: true,
             isUsingFallbackLocation: false
         )
     }
@@ -51,6 +53,7 @@ enum DaylightEntryLoader {
                 solar: solar,
                 now: date
             ),
+            hasRecordedData: (defaults.object(forKey: daylightHasRecordedSampleKey) as? Bool) ?? (record != nil),
             isUsingFallbackLocation: !location.isReal
         )
     }
@@ -91,11 +94,11 @@ struct DaylightWidgetView: View {
                 Label("In daylight today", systemImage: "sun.max.fill")
                     .font(.caption2)
                     .foregroundStyle(Theme.textSecondary)
-                Text(DaylightFormat.minutes(entry.snapshot.minutesToday))
+                Text(entry.hasRecordedData ? DaylightFormat.minutes(entry.snapshot.minutesToday) : "No sample")
                     .font(.system(size: 30, weight: .bold, design: .rounded))
                     .foregroundStyle(entry.snapshot.metGoal ? Theme.mint : Theme.amber)
                     .minimumScaleFactor(0.6)
-                Text("of \(DaylightFormat.minutes(entry.snapshot.goalMinutes))")
+                Text(entry.hasRecordedData ? "of \(DaylightFormat.minutes(entry.snapshot.goalMinutes))" : "Apple Watch data pending")
                     .font(.caption2)
                     .foregroundStyle(Theme.textSecondary)
                 ProgressView(value: entry.snapshot.goalProgress)
@@ -117,14 +120,18 @@ struct DaylightWidgetView: View {
             .gaugeStyle(.accessoryCircular)
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 1) {
-                Text("IN DAYLIGHT").font(.caption2)
-                Text("\(DaylightFormat.minutes(entry.snapshot.minutesToday)) of \(DaylightFormat.minutes(entry.snapshot.goalMinutes))")
+                Text(entry.hasRecordedData ? "IN DAYLIGHT" : "NO SAMPLE").font(.caption2)
+                Text(entry.hasRecordedData
+                     ? "\(DaylightFormat.minutes(entry.snapshot.minutesToday)) of \(DaylightFormat.minutes(entry.snapshot.goalMinutes))"
+                     : "Apple Watch data pending")
                     .font(.headline.bold())
                 Text(subtitle).font(.caption).lineLimit(1)
             }
         case .accessoryInline:
             Label(
-                "\(DaylightFormat.compactMinutes(entry.snapshot.minutesToday)) of \(DaylightFormat.compactMinutes(entry.snapshot.goalMinutes)) outside",
+                entry.hasRecordedData
+                    ? "\(DaylightFormat.compactMinutes(entry.snapshot.minutesToday)) of \(DaylightFormat.compactMinutes(entry.snapshot.goalMinutes)) outside"
+                    : "No daylight sample today",
                 systemImage: "sun.max.fill"
             )
         default:
@@ -133,10 +140,10 @@ struct DaylightWidgetView: View {
                     Label("In daylight today", systemImage: "sun.max.fill")
                         .font(.caption2)
                         .foregroundStyle(Theme.textSecondary)
-                    Text(DaylightFormat.minutes(entry.snapshot.minutesToday))
+                    Text(entry.hasRecordedData ? DaylightFormat.minutes(entry.snapshot.minutesToday) : "No sample")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundStyle(entry.snapshot.metGoal ? Theme.mint : Theme.amber)
-                    Text("of \(DaylightFormat.minutes(entry.snapshot.goalMinutes)) target")
+                    Text(entry.hasRecordedData ? "of \(DaylightFormat.minutes(entry.snapshot.goalMinutes)) target" : "Apple Watch data pending")
                         .font(.caption2)
                         .foregroundStyle(Theme.textSecondary)
                     ProgressView(value: entry.snapshot.goalProgress)
@@ -169,6 +176,7 @@ struct DaylightWidgetView: View {
     }
 
     private var subtitle: String {
+        if !entry.hasRecordedData { return "No sample today" }
         if entry.isUsingFallbackLocation { return "Open app for local sunset" }
         let snapshot = entry.snapshot
         if snapshot.metGoal { return "Target reached" }

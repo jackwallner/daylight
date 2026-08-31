@@ -40,8 +40,8 @@ struct DaylightOnboardingView: View {
     private var healthAccess: some View {
         OnboardingPage(
             symbol: "heart.text.square.fill",
-            title: "Connect the full picture",
-            message: "Daylight asks Apple Health for daylight, sleep, activity, heart, and breathing records. The Daylight+ Personal Daylight Model checks which signals actually line up for you. Everything is read-only, analyzed on this device, and never sent to us. You can choose each type in Apple's permission sheet."
+            title: "Connect your daylight minutes",
+            message: "Daylight asks Apple Health only for Time in Daylight here. If you later use the Daylight+ Personal Daylight Model, you can separately grant access to sleep, activity, heart, and breathing records. Everything is read-only and stays on this device."
         ) {
             Button("Connect Apple Health") {
                 Task {
@@ -643,6 +643,10 @@ struct DaylightTrendsView: View {
         .safeAreaPadding(.bottom, 80)
         .navigationTitle("Trends")
         .task(id: range) { await load() }
+        .onChange(of: store.isPro) { _, isPro in
+            guard isPro else { return }
+            Task { await load() }
+        }
         .sheet(isPresented: $showPurchase) { DaylightPurchaseView() }
     }
 
@@ -652,6 +656,8 @@ struct DaylightTrendsView: View {
                 ForEach(Self.ranges, id: \.self) { days in
                     let label = days == 365 ? "1y" : "\(days)d"
                     if days == Self.freeDays {
+                        Text(label).tag(days)
+                    } else if store.isPro {
                         Text(label).tag(days)
                     } else {
                         Label(label, systemImage: "lock.fill")
@@ -675,24 +681,37 @@ struct DaylightTrendsView: View {
     }
 
     private var summaryCard: some View {
-        HStack {
-            TrendStat(
-                value: DaylightFormat.minutes(DaylightSummary.average(totals)),
-                label: "Daily average"
-            )
-            Spacer()
-            TrendStat(
-                value: "\(DaylightSummary.daysMetGoal(totals))",
-                label: "Days on target"
-            )
-            Spacer()
-            TrendStat(
-                value: "\(DaylightSummary.currentStreak(totals))",
-                label: "Current streak"
-            )
+        VStack(spacing: 12) {
+            HStack {
+                TrendStat(
+                    value: DaylightFormat.minutes(DaylightSummary.average(totals)),
+                    label: "Recorded average"
+                )
+                Spacer()
+                TrendStat(
+                    value: "\(DaylightSummary.daysMetGoal(totals))",
+                    label: "Days on target"
+                )
+                Spacer()
+                TrendStat(
+                    value: "\(DaylightSummary.currentStreak(totals))",
+                    label: "Current streak"
+                )
+            }
+            if missingSampleCount > 0 {
+                Divider()
+                Text("\(missingSampleCount) day\(missingSampleCount == 1 ? "" : "s") without a recorded sample are not counted as zero.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
         }
         .padding(18)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+    }
+
+    private var missingSampleCount: Int {
+        totals.filter { !$0.hasRecordedData }.count
     }
 
     /// The number that only the sun can tell you, and the reason this screen is
@@ -754,7 +773,7 @@ struct DaylightTrendsView: View {
                     .font(.callout)
                 Button("Review Health access") {
                     Task {
-                        try? await health.requestAuthorization()
+                        try? await health.requestAuthorization(includePersonalModel: true)
                         await loadPersonalModel()
                     }
                 }
@@ -907,19 +926,27 @@ private struct HistoryBars: View {
             HStack(alignment: .bottom, spacing: spacing) {
                 ForEach(totals) { total in
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(total.metGoal ? Theme.amber : Theme.dusk.opacity(0.55))
+                        .fill(barColor(for: total))
                         .frame(height: max(2, geometry.size.height * total.minutes / maximum))
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(total.date.formatted(date: .abbreviated, time: .omitted))
-                        .accessibilityValue(
-                            "\(DaylightFormat.minutes(total.minutes)) in daylight, target \(DaylightFormat.minutes(total.goalMinutes))"
-                        )
+                        .accessibilityValue(accessibilityValue(for: total))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Daily minutes in daylight over the selected range")
+    }
+
+    private func barColor(for total: DaylightSummary.DailyTotal) -> Color {
+        guard total.hasRecordedData else { return Theme.textSecondary.opacity(0.25) }
+        return total.metGoal ? Theme.amber : Theme.dusk.opacity(0.55)
+    }
+
+    private func accessibilityValue(for total: DaylightSummary.DailyTotal) -> String {
+        guard total.hasRecordedData else { return "No recorded daylight sample" }
+        return "\(DaylightFormat.minutes(total.minutes)) in daylight, target \(DaylightFormat.minutes(total.goalMinutes))"
     }
 }
 
@@ -963,13 +990,13 @@ struct DaylightSettingsView: View {
             Section("Apple Health") {
                 Button("Connect or review access") {
                     Task {
-                        try? await health.requestAuthorization()
+                        try? await health.requestAuthorization(includePersonalModel: store.isPro)
                         await health.refreshCache()
                     }
                 }
                 NavigationLink("Included sources") { DaylightSourcesView() }
                 LabeledContent("Daylight data", value: healthStatusLabel)
-                Text("Daylight reads Time in Daylight plus sleep, activity, heart, and breathing records for the Personal Daylight Model. It never writes to Apple Health, uploads Health data, or treats missing data as zero.")
+                Text("Daylight reads Time in Daylight. The Personal Daylight Model can separately read sleep, activity, heart, and breathing records. It never writes to Apple Health, uploads Health data, or treats missing data as zero.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

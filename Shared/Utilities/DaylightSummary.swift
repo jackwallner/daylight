@@ -349,8 +349,8 @@ enum DaylightSummary {
 
     /// Per-day totals for the last `days` days, most recent first.
     ///
-    /// Days with no samples are included with zero. A gap in the chart is
-    /// information: it is a day spent indoors, not missing data.
+    /// Days with no samples stay in the range so the chart can show a gap, but
+    /// `hasRecordedData` keeps that gap distinct from a measured zero.
     static func dailyTotals(
         _ samples: [Sample],
         days: Int,
@@ -389,10 +389,11 @@ enum DaylightSummary {
         }
     }
 
-    /// Mean minutes per day across `totals`. Zero for an empty range.
+    /// Mean minutes across days with a recorded sample. Zero when none exist.
     static func average(_ totals: [DailyTotal]) -> Double {
-        guard !totals.isEmpty else { return 0 }
-        return totals.reduce(0) { $0 + $1.minutes } / Double(totals.count)
+        let recorded = totals.filter(\.hasRecordedData)
+        guard !recorded.isEmpty else { return 0 }
+        return recorded.reduce(0) { $0 + $1.minutes } / Double(recorded.count)
     }
 
     /// How many of `totals` met their goal.

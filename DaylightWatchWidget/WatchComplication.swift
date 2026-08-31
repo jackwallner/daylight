@@ -5,6 +5,7 @@ import WidgetKit
 struct WatchDaylightEntry: TimelineEntry {
     let date: Date
     let snapshot: DaylightSummary.Snapshot
+    let hasRecordedData: Bool
     let isUsingFallbackLocation: Bool
 
     static func placeholder(at date: Date = .now) -> WatchDaylightEntry {
@@ -17,6 +18,7 @@ struct WatchDaylightEntry: TimelineEntry {
                 solar: solar,
                 now: date
             ),
+            hasRecordedData: true,
             isUsingFallbackLocation: false
         )
     }
@@ -63,6 +65,7 @@ struct WatchDaylightProvider: TimelineProvider {
                 solar: solar,
                 now: date
             ),
+            hasRecordedData: (defaults.object(forKey: daylightHasRecordedSampleKey) as? Bool) ?? (record != nil),
             isUsingFallbackLocation: !location.isReal
         )
     }
@@ -83,25 +86,29 @@ struct WatchDaylightComplicationView: View {
             Gauge(value: entry.snapshot.goalProgress) {
                 Image(systemName: "sun.max.fill")
             } currentValueLabel: {
-                Text(DaylightFormat.compactMinutes(entry.snapshot.minutesToday))
+                Text(entry.hasRecordedData ? DaylightFormat.compactMinutes(entry.snapshot.minutesToday) : "·")
                     .minimumScaleFactor(0.6)
             }
             .gaugeStyle(.accessoryCircular)
             .tint(entry.snapshot.metGoal ? Theme.mint : Theme.gold)
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 1) {
-                Text("IN DAYLIGHT").font(.caption2)
-                Text("\(DaylightFormat.minutes(entry.snapshot.minutesToday)) of \(DaylightFormat.minutes(entry.snapshot.goalMinutes))")
+                Text(entry.hasRecordedData ? "IN DAYLIGHT" : "NO SAMPLE").font(.caption2)
+                Text(entry.hasRecordedData
+                     ? "\(DaylightFormat.minutes(entry.snapshot.minutesToday)) of \(DaylightFormat.minutes(entry.snapshot.goalMinutes))"
+                     : "Apple Watch data pending")
                     .font(.headline.bold())
                 Text(subtitle).font(.caption).lineLimit(1)
             }
         case .accessoryInline:
             Label(
-                "\(DaylightFormat.compactMinutes(entry.snapshot.minutesToday)) of \(DaylightFormat.compactMinutes(entry.snapshot.goalMinutes)) outside",
+                entry.hasRecordedData
+                    ? "\(DaylightFormat.compactMinutes(entry.snapshot.minutesToday)) of \(DaylightFormat.compactMinutes(entry.snapshot.goalMinutes)) outside"
+                    : "No daylight sample today",
                 systemImage: "sun.max.fill"
             )
         case .accessoryCorner:
-            Text(DaylightFormat.compactMinutes(entry.snapshot.minutesToday))
+            Text(entry.hasRecordedData ? DaylightFormat.compactMinutes(entry.snapshot.minutesToday) : "·")
                 .font(.headline.bold())
                 .widgetLabel {
                     Gauge(value: entry.snapshot.goalProgress) { Text("in daylight") }
@@ -113,6 +120,7 @@ struct WatchDaylightComplicationView: View {
     }
 
     private var subtitle: String {
+        if !entry.hasRecordedData { return "No sample today" }
         if entry.isUsingFallbackLocation { return "Open app for sunset" }
         let snapshot = entry.snapshot
         if snapshot.metGoal { return "Target reached" }

@@ -43,10 +43,8 @@ reason it changed.
 - App Group: `group.com.jackwallner.daylight`
 - App Store Connect app: `6806112259`
 - RevenueCat project `proje7f6e3db`. The entitlement's lookup key is
-  `daylight` and `Daylight+` is only its display name, so the
-  `StoreService.proEntitlement` constant does not match anything. Nothing reads
-  that constant: `isPro` is set from any active entitlement, which is why the
-  mismatch has never shown up.
+  `daylight` and `Daylight+` is only its display name. `StoreService` checks the
+  exact lookup key so an unrelated entitlement cannot unlock premium access.
 - RevenueCat secret key: `~/.daylight_credentials`. Only the `appl_` public key
   belongs in the binary.
 
