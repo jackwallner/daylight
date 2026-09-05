@@ -22,6 +22,18 @@ packages:
     from: 5.14.0
 
 schemes:
+  DaylightUITests:
+    build:
+      targets:
+        Daylight: all
+        DaylightUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - DaylightUITests
+    run:
+      config: Debug
+
   Daylight:
     build:
       targets:
@@ -171,3 +183,20 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.jackwallner.daylight.tests
     dependencies:
       - target: Daylight
+
+  # The paywall purchase probe. Its own target and scheme: the app's own test
+  # action activates StoreKit Testing, and this has to reach RevenueCat's Test
+  # Store instead.
+  DaylightUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: DaylightUITests
+    dependencies:
+      - target: Daylight
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.jackwallner.daylight.uitests
+        TEST_TARGET_NAME: Daylight
+
