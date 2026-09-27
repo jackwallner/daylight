@@ -54,11 +54,11 @@ Two pure-Swift files carry the product, and both are free of HealthKit,
 CoreLocation, and SwiftUI so the widgets compile them and the tests run without
 a device:
 
-- `Shared/Utilities/SolarCalculator.swift` — the NOAA solar position algorithm.
+- `Shared/Utilities/SolarCalculator.swift`: the NOAA solar position algorithm.
   Sunrise, sunset, solar noon, civil twilight, declination, equation of time,
   and elevation, plus the polar day and polar night states. Pinned in tests
   against published times for Seattle, London, Sydney, and Tromsø.
-- `Shared/Utilities/DaylightSummary.swift` — the join. Remaining daylight,
+- `Shared/Utilities/DaylightSummary.swift`: the join. Remaining daylight,
   shortfall against the target, the head-out-by deadline, source
   reconciliation, daily totals, streaks, and the month-over-month change in
   available daylight.
@@ -120,9 +120,9 @@ Run `xcodegen generate`, tests on a leased simulator UDID, then
 The rest of the release checklist (`asc-readiness.py`, headless screenshot
 capture, the App Review paywall screenshot, API rate limits, the manual first-IAP
 step) is in `.claude/rules/release-and-store.md`, which loads when you read a
-matching file; AGENTS.md readers should open it directly. Sync screenshots with
+matching file; Codex and other agents should open it directly. Sync screenshots with
 `~/ios/appstore-screenshots/bin/asc-sync-screenshots`, never a repo-local uploader.
 
 ---
 Shared iOS conventions (build, simulator, release/TestFlight, ASC key, signing,
-review funnel, gotchas): always-loaded global CLAUDE.md + the `ios-dev` skill.
+review funnel, gotchas): the global agent rules + the `ios-dev` skill.
