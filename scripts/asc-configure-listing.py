@@ -18,7 +18,15 @@ APP_NAME = "Daylight Left"
 AGE_TEMPLATE_BUNDLE_ID = os.environ.get(
     "ASC_AGE_TEMPLATE_BUNDLE_ID", "com.jackwallner.vitals"
 )
-REVIEW_NOTES = """Daylight reads HealthKit's Time in Daylight, sleep analysis, steps, Apple exercise time, active energy, resting heart rate, heart-rate variability, and respiratory rate. It never writes to Apple Health or uploads Health data.
+REVIEW_NOTES = """REGARDING THE 4.3(a) REJECTION
+
+Daylight is not a generic tracker. Its core is a NOAA solar position calculation that runs on the device (sunrise, sunset, solar noon, civil twilight, and polar day and night), joined to the minutes the user has recorded in daylight to produce the latest time they could head out and still reach their own daily target before sunset. That deadline is computed from the shortfall against sunset and moves with the season. The Daylight+ Personal Daylight Model separately compares the user's own Health signals on device.
+
+No app template, purchased or otherwise, and no third-party or acquired code is involved. All of my apps are submitted from this single account. I reuse my own utility code for settings, purchases and storage, which is not the same source code or assets as another app. Nothing else I have submitted implements a solar position algorithm.
+
+The rejection did not say which app this is considered similar to, or which of the listed criteria it failed. If it is rejected again, please name the specific app or the specific criterion so I can address it directly.
+
+Daylight reads HealthKit's Time in Daylight, sleep analysis, steps, Apple exercise time, active energy, resting heart rate, heart-rate variability, and respiratory rate. It never writes to Apple Health or uploads Health data.
 
 TO TEST WITHOUT HEALTH DATA: complete onboarding and open Today. The screen works with no Apple Health samples at all. It shows how much daylight is left before sunset, today's sunrise and sunset, the day length, and the latest time you could head out to reach your daily target. Only the "minutes spent in daylight" figure needs Health data.
 
