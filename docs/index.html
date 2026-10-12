@@ -3,36 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="Track the minutes you spend in daylight against a daily target, and see the latest you could head out to still reach it before sunset. iPhone and Apple Watch, powered by Apple Health."
-    />
-    <title>Daylight for iPhone and Apple Watch</title>
+    <meta name="description" content="Daylight tracker app for iPhone and Apple Watch. Time in Daylight from Apple Health against your daily target, plus the latest you can head out before sunset." />
+    <title>Daylight Tracker App for iPhone | Daylight: Minutes Outside</title>
     <link rel="icon" type="image/png" sizes="256x256" href="icon_256.png" />
     <link rel="apple-touch-icon" href="icon_256.png" />
     <link rel="canonical" href="https://jackwallner.com/ios/daylight/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta
       name="keywords"
       content="daylight tracker, time in daylight, sunlight tracker, minutes outside, daily target, streak, sunset, sunrise, Apple Watch, Apple Health, widget, complication"
     />
-    <meta property="og:title" content="Daylight" />
-    <meta
-      property="og:description"
-      content="Track the minutes you spend in daylight against a daily target, and the latest you could head out to still reach it before sunset."
-    />
+    <meta property="og:title" content="Daylight Tracker App for iPhone | Daylight: Minutes Outside" />
+    <meta property="og:description" content="A daylight tracker app for iPhone and Apple Watch. Track your Time in Daylight against a daily target and the latest you can head out before sunset." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://jackwallner.com/ios/daylight/" />
     <meta
       property="og:image"
       content="https://jackwallner.github.io/daylight/icon_256.png"
     />
-    <meta property="og:site_name" content="Daylight" />
+    <meta property="og:site_name" content="Jack Wallner" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Daylight" />
-    <meta
-      name="twitter:description"
-      content="Track the minutes you spend in daylight against a daily target, and the latest you could head out to still reach it before sunset."
-    />
+    <meta name="twitter:title" content="Daylight Tracker App for iPhone | Daylight: Minutes Outside" />
+    <meta name="twitter:description" content="A daylight tracker app for iPhone and Apple Watch. Track your Time in Daylight against a daily target and the latest you can head out before sunset." />
     <meta
       name="twitter:image"
       content="https://jackwallner.github.io/daylight/icon_256.png"
@@ -40,19 +32,152 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Daylight",
-        "operatingSystem": "iOS 17.0, watchOS 10.0",
-        "applicationCategory": "HealthApplication",
-        "description": "Reads Time in Daylight from Apple Health and pairs it with the daylight the sun still has to offer, so you can see how much is left today and the latest you could head out to reach your target before sunset. Sunrise and sunset are computed on device. Not medical advice.",
-        "url": "https://jackwallner.com/ios/daylight/",
-        "author": {
-          "@type": "Person",
-          "name": "Jack Wallner"
-        }
+        "@graph": [
+          {
+            "@type": "MobileApplication",
+            "@id": "https://jackwallner.com/ios/daylight/#app",
+            "name": "Daylight: Minutes Outside",
+            "alternateName": "Daylight",
+            "description": "Daylight is a daylight tracker app for iPhone and Apple Watch. It reads Time in Daylight from Apple Health, shows it against a daily target, and works out the latest you could head out to reach it before sunset, with sunrise and sunset computed on your device. It is not medical advice.",
+            "applicationCategory": "HealthApplication",
+            "operatingSystem": "iOS 17+, watchOS 10+",
+            "url": "https://jackwallner.com/ios/daylight/",
+            "featureList": [
+              "Time in Daylight from Apple Health against a daily target",
+              "Latest time to head out before sunset",
+              "Sunrise and sunset computed on device",
+              "Home Screen and Lock Screen widgets",
+              "Apple Watch app and complications",
+              "Daily streak and trends",
+              "Optional Personal Daylight Model on device"
+            ],
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "author": {
+              "@type": "Person",
+              "name": "Jack Wallner",
+              "url": "https://jackwallner.com/"
+            },
+            "publisher": {
+              "@type": "Person",
+              "name": "Jack Wallner",
+              "url": "https://jackwallner.com/"
+            }
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Is there a daylight tracker app for iPhone and Apple Watch?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Daylight reads Time in Daylight from Apple Health, shows it against a daily target you choose, and works out the latest you could head out to reach that target before sunset."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I track my time in daylight on Apple Watch?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Apple Watch records Time in Daylight in Apple Health, and Daylight reads that number and shows it on the Today screen, in widgets and on watch complications. Without an Apple Watch the minutes-spent figure stays at zero and the app says so, while the sunrise and sunset half still works."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How does Daylight know when the sun sets?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Sunrise and sunset are calculated on your device with the NOAA solar position algorithm and one approximate location fix. There is no server and no network call to find out when the sun sets, and polar days and nights are handled too."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is the latest time I can go outside to reach my daylight target?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "If you are short of your target, Daylight works out the latest you could start and still reach it before the light goes. The deadline is anchored on sunset so it moves with the season, and when the target is out of reach the app says so plainly."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does Daylight have widgets and Apple Watch complications?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Daylight has Home Screen and Lock Screen widgets and Apple Watch complications in circular, rectangular, inline and corner styles, each showing progress toward your target."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does Daylight upload my Apple Health data?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. The optional Personal Daylight Model compares daylight with sleep, activity, heart rate, heart-rate variability and respiratory records entirely on your device, and Health data is never uploaded."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does Daylight give health advice?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Daylight reports what your devices recorded and what the sun offers, and your daily target is your own preference. It does not diagnose, treat, cure or prevent anything, and it makes no claim about mood, sleep, vitamin D or eyesight."
+                }
+              }
+            ]
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Jack Wallner",
+                "item": "https://jackwallner.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "iOS apps",
+                "item": "https://jackwallner.com/ios/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Daylight: Minutes Outside",
+                "item": "https://jackwallner.com/ios/daylight/"
+              }
+            ]
+          }
+        ]
       }
     </script>
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .faq-list {
+        max-width: 720px;
+        margin-top: 28px;
+      }
+      .faq-item {
+        border-top: 1px solid var(--line);
+        padding: 18px 0;
+      }
+      .faq-item:last-child {
+        border-bottom: 1px solid var(--line);
+      }
+      .faq-item summary {
+        color: var(--ink);
+        font-size: 18px;
+        font-weight: 640;
+        line-height: 1.4;
+        cursor: pointer;
+      }
+      .faq-item p {
+        margin: 10px 0 0;
+      }
+    </style>
   </head>
   <body>
     <div class="wrap">
@@ -68,7 +193,7 @@
         <section class="hero">
           <div>
             <div class="eyebrow">Minutes outside, with a deadline</div>
-            <h1>Track your minutes in daylight</h1>
+            <h1>A daylight tracker app with a sunset deadline</h1>
             <p class="lead">
               Apple Health counts the minutes you spent in daylight. This gives
               that number a target to climb toward, then adds the half nobody
@@ -187,6 +312,43 @@
             </p>
           </div>
         </section>
+
+        <section class="section" id="faq">
+          <div class="section-copy">
+            <div class="eyebrow">Questions</div>
+            <h2>Daylight tracker app, answered</h2>
+          </div>
+          <div class="faq-list">
+            <details class="faq-item">
+              <summary>Is there a daylight tracker app for iPhone and Apple Watch?</summary>
+              <p>Yes. Daylight reads Time in Daylight from Apple Health, shows it against a daily target you choose, and works out the latest you could head out to reach that target before sunset.</p>
+            </details>
+            <details class="faq-item">
+              <summary>How do I track my time in daylight on Apple Watch?</summary>
+              <p>Apple Watch records Time in Daylight in Apple Health, and Daylight reads that number and shows it on the Today screen, in widgets and on watch complications. Without an Apple Watch the minutes-spent figure stays at zero and the app says so, while the sunrise and sunset half still works.</p>
+            </details>
+            <details class="faq-item">
+              <summary>How does Daylight know when the sun sets?</summary>
+              <p>Sunrise and sunset are calculated on your device with the NOAA solar position algorithm and one approximate location fix. There is no server and no network call to find out when the sun sets, and polar days and nights are handled too.</p>
+            </details>
+            <details class="faq-item">
+              <summary>What is the latest time I can go outside to reach my daylight target?</summary>
+              <p>If you are short of your target, Daylight works out the latest you could start and still reach it before the light goes. The deadline is anchored on sunset so it moves with the season, and when the target is out of reach the app says so plainly.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Does Daylight have widgets and Apple Watch complications?</summary>
+              <p>Yes. Daylight has Home Screen and Lock Screen widgets and Apple Watch complications in circular, rectangular, inline and corner styles, each showing progress toward your target.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Does Daylight upload my Apple Health data?</summary>
+              <p>No. The optional Personal Daylight Model compares daylight with sleep, activity, heart rate, heart-rate variability and respiratory records entirely on your device, and Health data is never uploaded.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Does Daylight give health advice?</summary>
+              <p>No. Daylight reports what your devices recorded and what the sun offers, and your daily target is your own preference. It does not diagnose, treat, cure or prevent anything, and it makes no claim about mood, sleep, vitamin D or eyesight.</p>
+            </details>
+          </div>
+        </section>
       </main>
 
       <footer>
@@ -194,7 +356,8 @@
         <span
           ><a href="privacy-policy.html">Privacy</a> ·
           <a href="terms.html">Terms</a> ·
-          <a href="support.html">Support</a></span
+          <a href="support.html">Support</a> ·
+          <a href="https://jackwallner.com/ios/">More apps by Jack Wallner</a></span
         >
       </footer>
     </div>
