@@ -1,0 +1,1 @@
+Se minuttene vokse mot dagens mål, og finn siste tidspunkt å gå ut før solnedgang.

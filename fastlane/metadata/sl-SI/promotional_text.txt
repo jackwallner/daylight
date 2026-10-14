@@ -1,0 +1,1 @@
+Spremljaj minute do dnevnega cilja in izvedi, kdaj najpozneje oditi pred sončnim zahodom.
